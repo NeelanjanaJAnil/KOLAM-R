@@ -10,7 +10,7 @@ import math
 import numpy as np
 from PIL import Image, ImageDraw
 
-from kolam_r.schema import GeometricRepresentation, BoundingBox
+from kolam_r.schema import GeometricRepresentation
 from kolam_r.renderer.image_renderer import _compute_transform, _world_to_pixel
 from kolam_r.turtle.interpreter import LineSegment
 
