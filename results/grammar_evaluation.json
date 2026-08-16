@@ -1,0 +1,207 @@
+{
+  "model_type": "VisionToGrammarModel",
+  "benchmarks": {
+    "val": {
+      "num_samples": 216,
+      "token_level_accuracy": 0.8059964726631393,
+      "exact_sequence_match": 0.8379629629629629,
+      "syntactic_executability_rate": 1.0,
+      "symbolic_expansion_match_rate": 0.8379629629629629,
+      "auxiliary_parameters": {
+        "symmetry_accuracy": 0.6666666666666666,
+        "grid_size_accuracy": 0.5648148148148148,
+        "angle_mae_degrees": 6.426713042789036,
+        "angle_accuracy_within_5deg": 0.47685185185185186
+      },
+      "protocol_b_deployed_pipeline": {
+        "depth_discovery_accuracy": 0.44907407407407407,
+        "full_structural_exact_match": 0.06481481481481481,
+        "mean_reconstruction_ncc": 0.32237705494346164
+      },
+      "protocol_a_oracle_depth_diagnostic": {
+        "full_structural_exact_match": 0.13425925925925927,
+        "mean_reconstruction_correlation": 0.274322976431808
+      },
+      "protocol_c_direct_head_baseline": {
+        "depth_accuracy": 0.9907407407407407
+      }
+    },
+    "test_iid": {
+      "num_samples": 216,
+      "token_level_accuracy": 0.8803390576838397,
+      "exact_sequence_match": 0.8842592592592593,
+      "syntactic_executability_rate": 1.0,
+      "symbolic_expansion_match_rate": 0.8842592592592593,
+      "auxiliary_parameters": {
+        "symmetry_accuracy": 0.7083333333333334,
+        "grid_size_accuracy": 0.46296296296296297,
+        "angle_mae_degrees": 5.711734860031693,
+        "angle_accuracy_within_5deg": 0.625
+      },
+      "protocol_b_deployed_pipeline": {
+        "depth_discovery_accuracy": 0.5,
+        "full_structural_exact_match": 0.06944444444444445,
+        "mean_reconstruction_ncc": 0.3466876114209838
+      },
+      "protocol_a_oracle_depth_diagnostic": {
+        "full_structural_exact_match": 0.10185185185185185,
+        "mean_reconstruction_correlation": 0.2931376747457262
+      },
+      "protocol_c_direct_head_baseline": {
+        "depth_accuracy": 0.9583333333333334
+      }
+    },
+    "test_heldout_depth": {
+      "num_samples": 480,
+      "token_level_accuracy": 0.6623347355769231,
+      "exact_sequence_match": 0.6166666666666667,
+      "syntactic_executability_rate": 1.0,
+      "symbolic_expansion_match_rate": 0.6166666666666667,
+      "auxiliary_parameters": {
+        "symmetry_accuracy": 0.4166666666666667,
+        "grid_size_accuracy": 0.35,
+        "angle_mae_degrees": 14.719961333274842,
+        "angle_accuracy_within_5deg": 0.1875
+      },
+      "protocol_b_deployed_pipeline": {
+        "depth_discovery_accuracy": 0.22083333333333333,
+        "full_structural_exact_match": 0.0020833333333333333,
+        "mean_reconstruction_ncc": 0.3931082168671613
+      },
+      "protocol_a_oracle_depth_diagnostic": {
+        "full_structural_exact_match": 0.004166666666666667,
+        "mean_reconstruction_correlation": 0.309903903517394
+      },
+      "protocol_c_direct_head_baseline": {
+        "depth_accuracy": 0.37916666666666665
+      }
+    }
+  },
+  "corruptions": {
+    "gaussian_noise": {
+      "num_samples": 216,
+      "token_level_accuracy": 0.6006164685160722,
+      "exact_sequence_match": 0.7407407407407407,
+      "syntactic_executability_rate": 1.0,
+      "symbolic_expansion_match_rate": 0.7407407407407407,
+      "auxiliary_parameters": {
+        "symmetry_accuracy": 0.4027777777777778,
+        "grid_size_accuracy": 0.2777777777777778,
+        "angle_mae_degrees": 12.694380636568424,
+        "angle_accuracy_within_5deg": 0.3425925925925926
+      },
+      "protocol_b_deployed_pipeline": {
+        "depth_discovery_accuracy": 0.4305555555555556,
+        "full_structural_exact_match": 0.004629629629629629,
+        "mean_reconstruction_ncc": 0.23363485407187706
+      },
+      "protocol_a_oracle_depth_diagnostic": {
+        "full_structural_exact_match": 0.009259259259259259,
+        "mean_reconstruction_correlation": 0.18277202102789564
+      },
+      "protocol_c_direct_head_baseline": {
+        "depth_accuracy": 0.4027777777777778
+      }
+    },
+    "rotation": {
+      "num_samples": 216,
+      "token_level_accuracy": 0.5939013650374284,
+      "exact_sequence_match": 0.6203703703703703,
+      "syntactic_executability_rate": 1.0,
+      "symbolic_expansion_match_rate": 0.6203703703703703,
+      "auxiliary_parameters": {
+        "symmetry_accuracy": 0.2962962962962963,
+        "grid_size_accuracy": 0.2962962962962963,
+        "angle_mae_degrees": 21.007270177205402,
+        "angle_accuracy_within_5deg": 0.05555555555555555
+      },
+      "protocol_b_deployed_pipeline": {
+        "depth_discovery_accuracy": 0.21296296296296297,
+        "full_structural_exact_match": 0.004629629629629629,
+        "mean_reconstruction_ncc": 0.21418570871119974
+      },
+      "protocol_a_oracle_depth_diagnostic": {
+        "full_structural_exact_match": 0.013888888888888888,
+        "mean_reconstruction_correlation": 0.13980159354311764
+      },
+      "protocol_c_direct_head_baseline": {
+        "depth_accuracy": 0.75
+      }
+    },
+    "affine": {
+      "num_samples": 216,
+      "token_level_accuracy": 0.6282474680757376,
+      "exact_sequence_match": 0.6435185185185185,
+      "syntactic_executability_rate": 1.0,
+      "symbolic_expansion_match_rate": 0.6435185185185185,
+      "auxiliary_parameters": {
+        "symmetry_accuracy": 0.25925925925925924,
+        "grid_size_accuracy": 0.2777777777777778,
+        "angle_mae_degrees": 21.9053865008884,
+        "angle_accuracy_within_5deg": 0.046296296296296294
+      },
+      "protocol_b_deployed_pipeline": {
+        "depth_discovery_accuracy": 0.19907407407407407,
+        "full_structural_exact_match": 0.0,
+        "mean_reconstruction_ncc": 0.2146455225431257
+      },
+      "protocol_a_oracle_depth_diagnostic": {
+        "full_structural_exact_match": 0.0,
+        "mean_reconstruction_correlation": 0.13500268455270203
+      },
+      "protocol_c_direct_head_baseline": {
+        "depth_accuracy": 0.7268518518518519
+      }
+    },
+    "blur": {
+      "num_samples": 216,
+      "token_level_accuracy": 0.25872264931992905,
+      "exact_sequence_match": 0.18981481481481483,
+      "syntactic_executability_rate": 1.0,
+      "symbolic_expansion_match_rate": 0.18981481481481483,
+      "auxiliary_parameters": {
+        "symmetry_accuracy": 0.14351851851851852,
+        "grid_size_accuracy": 0.2777777777777778,
+        "angle_mae_degrees": 24.545882136733443,
+        "angle_accuracy_within_5deg": 0.013888888888888888
+      },
+      "protocol_b_deployed_pipeline": {
+        "depth_discovery_accuracy": 0.16666666666666666,
+        "full_structural_exact_match": 0.0,
+        "mean_reconstruction_ncc": 0.2898340949409262
+      },
+      "protocol_a_oracle_depth_diagnostic": {
+        "full_structural_exact_match": 0.0,
+        "mean_reconstruction_correlation": 0.14864099035456135
+      },
+      "protocol_c_direct_head_baseline": {
+        "depth_accuracy": 0.5462962962962963
+      }
+    },
+    "stroke_dropout": {
+      "num_samples": 216,
+      "token_level_accuracy": 0.8693306913254073,
+      "exact_sequence_match": 0.875,
+      "syntactic_executability_rate": 1.0,
+      "symbolic_expansion_match_rate": 0.875,
+      "auxiliary_parameters": {
+        "symmetry_accuracy": 0.6851851851851852,
+        "grid_size_accuracy": 0.48148148148148145,
+        "angle_mae_degrees": 7.235679326234041,
+        "angle_accuracy_within_5deg": 0.5138888888888888
+      },
+      "protocol_b_deployed_pipeline": {
+        "depth_discovery_accuracy": 0.4444444444444444,
+        "full_structural_exact_match": 0.046296296296296294,
+        "mean_reconstruction_ncc": 0.29428021231217794
+      },
+      "protocol_a_oracle_depth_diagnostic": {
+        "full_structural_exact_match": 0.09259259259259259,
+        "mean_reconstruction_correlation": 0.2398507499223424
+      },
+      "protocol_c_direct_head_baseline": {
+        "depth_accuracy": 0.9583333333333334
+      }
+    }
+  }
+}

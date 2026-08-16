@@ -1,0 +1,20 @@
+{
+  "oracle_depth_search_on_test_iid": {
+    "ncc": 1.0,
+    "ssim": 1.0,
+    "iou": 1.0,
+    "mse": 1.0
+  },
+  "full_multitask_test_iid": {
+    "exact_grammar_match_rate": 0.7407407407407407,
+    "per_token_accuracy": 0.29612794612794613,
+    "syntactic_validity_rate": 1.0,
+    "protocol_b_depth_accuracy": 0.5740740740740741
+  },
+  "full_multitask_test_heldout": {
+    "exact_grammar_match_rate": 0.6166666666666667,
+    "per_token_accuracy": 0.16698863636363637,
+    "syntactic_validity_rate": 1.0,
+    "protocol_b_depth_accuracy": 0.46458333333333335
+  }
+}

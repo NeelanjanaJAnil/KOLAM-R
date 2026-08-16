@@ -1,0 +1,438 @@
+{
+  "benchmarks": {
+    "val": {
+      "grammar_synthesis": {
+        "psnr": 9.279657168541371,
+        "ssim": 0.42252678506224967,
+        "iou": 0.3320878617729065,
+        "dice": 0.4669038051127842,
+        "ncc": 0.3795415905480525,
+        "chamfer_distance": 2.2608390588336666,
+        "mean_delta_beta_0": 6.0092592592592595,
+        "mean_delta_beta_1": 15.546296296296296,
+        "exact_topo_match_rate": 0.10648148148148148,
+        "depth_accuracy": 0.5092592592592593,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "baseline_cnn": {
+        "psnr": 13.318647240884857,
+        "ssim": 0.5814511129375565,
+        "iou": 0.46344093013563425,
+        "dice": 0.6000867586440823,
+        "ncc": 0.5028526181654489,
+        "chamfer_distance": 1.338262036830449,
+        "mean_delta_beta_0": 2.4722222222222223,
+        "mean_delta_beta_1": 7.611111111111111,
+        "exact_topo_match_rate": 0.27314814814814814,
+        "depth_accuracy": 1.0,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "classical_cv": {
+        "psnr": 31.490073461868306,
+        "ssim": 0.6662304909623452,
+        "iou": 0.6106988473367571,
+        "dice": 0.7032725792286032,
+        "ncc": 0.6873825776257996,
+        "chamfer_distance": 0.0,
+        "mean_delta_beta_0": 7.972222222222222,
+        "mean_delta_beta_1": 13.203703703703704,
+        "exact_topo_match_rate": 0.24074074074074073,
+        "depth_accuracy": 0.7731481481481481,
+        "grammar_match_rate": 0.7175925925925926
+      },
+      "autoencoder": {
+        "psnr": 22.647542179529037,
+        "ssim": 0.7150133823100936,
+        "iou": 0.7930608928977506,
+        "dice": 0.877850720342464,
+        "ncc": 0.9516940964087479,
+        "chamfer_distance": 0.5038274180625533,
+        "mean_delta_beta_0": 8.023148148148149,
+        "mean_delta_beta_1": 9.523148148148149,
+        "exact_topo_match_rate": 0.09259259259259259,
+        "depth_accuracy": "N/A",
+        "grammar_match_rate": "N/A"
+      }
+    },
+    "test_iid": {
+      "grammar_synthesis": {
+        "psnr": 8.827351223407893,
+        "ssim": 0.42832338219349303,
+        "iou": 0.3692254021505856,
+        "dice": 0.5000350067927608,
+        "ncc": 0.4132266895095319,
+        "chamfer_distance": 2.0598585783532104,
+        "mean_delta_beta_0": 6.143518518518518,
+        "mean_delta_beta_1": 15.75925925925926,
+        "exact_topo_match_rate": 0.14351851851851852,
+        "depth_accuracy": 0.5277777777777778,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "baseline_cnn": {
+        "psnr": 12.632403328116935,
+        "ssim": 0.5522075635189689,
+        "iou": 0.4613895770363172,
+        "dice": 0.5952155954026652,
+        "ncc": 0.5021358912098817,
+        "chamfer_distance": 1.3932148942283447,
+        "mean_delta_beta_0": 2.7777777777777777,
+        "mean_delta_beta_1": 9.027777777777779,
+        "exact_topo_match_rate": 0.2916666666666667,
+        "depth_accuracy": 1.0,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "classical_cv": {
+        "psnr": 23.52837840447068,
+        "ssim": 0.6514672356804634,
+        "iou": 0.5960790607454874,
+        "dice": 0.6880518907079841,
+        "ncc": 0.6663234848944349,
+        "chamfer_distance": 0.0,
+        "mean_delta_beta_0": 7.902777777777778,
+        "mean_delta_beta_1": 12.722222222222221,
+        "exact_topo_match_rate": 0.18518518518518517,
+        "depth_accuracy": 0.7638888888888888,
+        "grammar_match_rate": 0.7175925925925926
+      },
+      "autoencoder": {
+        "psnr": 22.067947114867962,
+        "ssim": 0.706598500025055,
+        "iou": 0.7736243196026544,
+        "dice": 0.861499333735572,
+        "ncc": 0.9449114717052327,
+        "chamfer_distance": 0.625097335531359,
+        "mean_delta_beta_0": 9.555555555555555,
+        "mean_delta_beta_1": 10.814814814814815,
+        "exact_topo_match_rate": 0.09259259259259259,
+        "depth_accuracy": "N/A",
+        "grammar_match_rate": "N/A"
+      }
+    },
+    "test_heldout_depth": {
+      "grammar_synthesis": {
+        "psnr": 6.053380748778292,
+        "ssim": 0.2560726360031029,
+        "iou": 0.4442146490341996,
+        "dice": 0.5921988112239011,
+        "ncc": 0.4212876526395174,
+        "chamfer_distance": 2.006974911847455,
+        "mean_delta_beta_0": 1.8229166666666667,
+        "mean_delta_beta_1": 17.314583333333335,
+        "exact_topo_match_rate": 0.075,
+        "depth_accuracy": 0.46458333333333335,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "baseline_cnn": {
+        "psnr": 5.592932546526538,
+        "ssim": 0.21812857629351784,
+        "iou": 0.3704561988749264,
+        "dice": 0.5188732170932177,
+        "ncc": 0.3037802242131515,
+        "chamfer_distance": 3.006875658165818,
+        "mean_delta_beta_0": 3.808333333333333,
+        "mean_delta_beta_1": 17.26875,
+        "exact_topo_match_rate": 0.05,
+        "depth_accuracy": 0.24791666666666667,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "classical_cv": {
+        "psnr": 34.379423191337004,
+        "ssim": 0.7686588742599051,
+        "iou": 0.8183290468069309,
+        "dice": 0.8809636752329806,
+        "ncc": 0.828732468365112,
+        "chamfer_distance": 0.0,
+        "mean_delta_beta_0": 0.7458333333333333,
+        "mean_delta_beta_1": 8.5875,
+        "exact_topo_match_rate": 0.5458333333333333,
+        "depth_accuracy": 0.8916666666666667,
+        "grammar_match_rate": 0.875
+      },
+      "autoencoder": {
+        "psnr": 9.581955987098393,
+        "ssim": 0.3072622999807874,
+        "iou": 0.6426428921191338,
+        "dice": 0.7718353279554134,
+        "ncc": 0.6241424136696515,
+        "chamfer_distance": 0.6338685995587847,
+        "mean_delta_beta_0": 11.408333333333333,
+        "mean_delta_beta_1": 32.479166666666664,
+        "exact_topo_match_rate": 0.0,
+        "depth_accuracy": "N/A",
+        "grammar_match_rate": "N/A"
+      }
+    }
+  },
+  "corruptions": {
+    "gaussian_noise": {
+      "grammar_synthesis": {
+        "psnr": 7.378203561917496,
+        "ssim": 0.03278503810557449,
+        "iou": 0.20102118835671426,
+        "dice": 0.3242865512319097,
+        "ncc": 0.19163772274513843,
+        "chamfer_distance": 5.403158282246255,
+        "mean_delta_beta_0": 13.50925925925926,
+        "mean_delta_beta_1": 23.078703703703702,
+        "exact_topo_match_rate": 0.06481481481481481,
+        "depth_accuracy": 0.3333333333333333,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "baseline_cnn": {
+        "psnr": 7.062970610716286,
+        "ssim": 0.016741332355676267,
+        "iou": 0.17998299135323303,
+        "dice": 0.29897107890022206,
+        "ncc": 0.0920428330015314,
+        "chamfer_distance": 2.7210013045929404,
+        "mean_delta_beta_0": 27.63888888888889,
+        "mean_delta_beta_1": 32.611111111111114,
+        "exact_topo_match_rate": 0.0,
+        "depth_accuracy": 0.4444444444444444,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "classical_cv": {
+        "psnr": 8.75954064180506,
+        "ssim": 0.1517430846508747,
+        "iou": 0.2658853336441431,
+        "dice": 0.4014765286738499,
+        "ncc": 0.4123752059868579,
+        "chamfer_distance": 0.0,
+        "mean_delta_beta_0": 9.226851851851851,
+        "mean_delta_beta_1": 18.15740740740741,
+        "exact_topo_match_rate": 0.13425925925925927,
+        "depth_accuracy": 0.5370370370370371,
+        "grammar_match_rate": 0.5925925925925926
+      },
+      "autoencoder": {
+        "psnr": 12.98234837242105,
+        "ssim": 0.36212463081900886,
+        "iou": 0.3505223202998974,
+        "dice": 0.5009399879504403,
+        "ncc": 0.6951368945602672,
+        "chamfer_distance": 1.7249028173843262,
+        "mean_delta_beta_0": 45.50925925925926,
+        "mean_delta_beta_1": 29.74074074074074,
+        "exact_topo_match_rate": 0.009259259259259259,
+        "depth_accuracy": "N/A",
+        "grammar_match_rate": "N/A"
+      }
+    },
+    "rotation": {
+      "grammar_synthesis": {
+        "psnr": 6.865240958897401,
+        "ssim": 0.2381964728674181,
+        "iou": 0.24904518763680403,
+        "dice": 0.3798852755352487,
+        "ncc": 0.2224615841892932,
+        "chamfer_distance": 4.014029544490155,
+        "mean_delta_beta_0": 13.00925925925926,
+        "mean_delta_beta_1": 21.194444444444443,
+        "exact_topo_match_rate": 0.009259259259259259,
+        "depth_accuracy": 0.17592592592592593,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "baseline_cnn": {
+        "psnr": 8.9840334592318,
+        "ssim": 0.23365985945016024,
+        "iou": 0.17779342608607637,
+        "dice": 0.28333480109929066,
+        "ncc": 0.14785610983429473,
+        "chamfer_distance": 4.956094095597742,
+        "mean_delta_beta_0": 14.777777777777779,
+        "mean_delta_beta_1": 18.916666666666668,
+        "exact_topo_match_rate": 0.018518518518518517,
+        "depth_accuracy": 0.7083333333333334,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "classical_cv": {
+        "psnr": 8.102689995828618,
+        "ssim": 0.35025263424708314,
+        "iou": 0.3605665028654045,
+        "dice": 0.4985032812331858,
+        "ncc": 0.36854047648795507,
+        "chamfer_distance": 0.0,
+        "mean_delta_beta_0": 9.319444444444445,
+        "mean_delta_beta_1": 22.0,
+        "exact_topo_match_rate": 0.0787037037037037,
+        "depth_accuracy": 0.28703703703703703,
+        "grammar_match_rate": 0.39814814814814814
+      },
+      "autoencoder": {
+        "psnr": 12.820757265494162,
+        "ssim": 0.28526149660983,
+        "iou": 0.3641822850402616,
+        "dice": 0.49734365965103755,
+        "ncc": 0.3965800783231587,
+        "chamfer_distance": 2.0950818074757955,
+        "mean_delta_beta_0": 23.578703703703702,
+        "mean_delta_beta_1": 18.814814814814813,
+        "exact_topo_match_rate": 0.009259259259259259,
+        "depth_accuracy": "N/A",
+        "grammar_match_rate": "N/A"
+      }
+    },
+    "stroke_dropout": {
+      "grammar_synthesis": {
+        "psnr": 7.6111578672911495,
+        "ssim": 0.3073940968911572,
+        "iou": 0.12486357675950907,
+        "dice": 0.2118191873176417,
+        "ncc": 0.1421169076827703,
+        "chamfer_distance": 6.582417113819982,
+        "mean_delta_beta_0": 7.449074074074074,
+        "mean_delta_beta_1": 17.36574074074074,
+        "exact_topo_match_rate": 0.009259259259259259,
+        "depth_accuracy": 0.2824074074074074,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "baseline_cnn": {
+        "psnr": 9.500155575207215,
+        "ssim": 0.3720647453602212,
+        "iou": 0.1578209113065522,
+        "dice": 0.25157661991270047,
+        "ncc": 0.173444494776851,
+        "chamfer_distance": 6.1675622756653405,
+        "mean_delta_beta_0": 4.703703703703703,
+        "mean_delta_beta_1": 12.805555555555555,
+        "exact_topo_match_rate": 0.07407407407407407,
+        "depth_accuracy": 0.8564814814814815,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "classical_cv": {
+        "psnr": 8.72572271625625,
+        "ssim": 0.4160301076714489,
+        "iou": 0.23377048889518803,
+        "dice": 0.3539670016989477,
+        "ncc": 0.3191717595970748,
+        "chamfer_distance": 0.0,
+        "mean_delta_beta_0": 8.939814814814815,
+        "mean_delta_beta_1": 19.62962962962963,
+        "exact_topo_match_rate": 0.12962962962962962,
+        "depth_accuracy": 0.4537037037037037,
+        "grammar_match_rate": 0.5648148148148148
+      },
+      "autoencoder": {
+        "psnr": 14.37158113911153,
+        "ssim": 0.4400638228479784,
+        "iou": 0.3778744628531585,
+        "dice": 0.5288492011186897,
+        "ncc": 0.5550689960979844,
+        "chamfer_distance": 3.3975938616258956,
+        "mean_delta_beta_0": 17.949074074074073,
+        "mean_delta_beta_1": 13.828703703703704,
+        "exact_topo_match_rate": 0.004629629629629629,
+        "depth_accuracy": "N/A",
+        "grammar_match_rate": "N/A"
+      }
+    },
+    "affine": {
+      "grammar_synthesis": {
+        "psnr": 7.124285543963164,
+        "ssim": 0.23188158657712613,
+        "iou": 0.24031380589672935,
+        "dice": 0.37046421812687563,
+        "ncc": 0.2164936632634148,
+        "chamfer_distance": 4.197378087020319,
+        "mean_delta_beta_0": 15.50462962962963,
+        "mean_delta_beta_1": 20.291666666666668,
+        "exact_topo_match_rate": 0.013888888888888888,
+        "depth_accuracy": 0.22685185185185186,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "baseline_cnn": {
+        "psnr": 9.098269747033461,
+        "ssim": 0.2438174184936747,
+        "iou": 0.16636933259641362,
+        "dice": 0.27027865416112323,
+        "ncc": 0.1398427720583435,
+        "chamfer_distance": 4.913370911580098,
+        "mean_delta_beta_0": 15.11111111111111,
+        "mean_delta_beta_1": 17.819444444444443,
+        "exact_topo_match_rate": 0.037037037037037035,
+        "depth_accuracy": 0.6666666666666666,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "classical_cv": {
+        "psnr": 7.595022615811281,
+        "ssim": 0.3259464029937754,
+        "iou": 0.2855050651729986,
+        "dice": 0.42274492587652085,
+        "ncc": 0.284761273805477,
+        "chamfer_distance": 0.0,
+        "mean_delta_beta_0": 9.88888888888889,
+        "mean_delta_beta_1": 23.24074074074074,
+        "exact_topo_match_rate": 0.06944444444444445,
+        "depth_accuracy": 0.21296296296296297,
+        "grammar_match_rate": 0.38425925925925924
+      },
+      "autoencoder": {
+        "psnr": 11.958670345706343,
+        "ssim": 0.2422239499172138,
+        "iou": 0.32756360003678253,
+        "dice": 0.469742032384093,
+        "ncc": 0.34151033451807583,
+        "chamfer_distance": 2.205508295871983,
+        "mean_delta_beta_0": 22.546296296296298,
+        "mean_delta_beta_1": 18.36574074074074,
+        "exact_topo_match_rate": 0.004629629629629629,
+        "depth_accuracy": "N/A",
+        "grammar_match_rate": "N/A"
+      }
+    },
+    "blur": {
+      "grammar_synthesis": {
+        "psnr": 8.260644711307027,
+        "ssim": 0.20942721810211753,
+        "iou": 0.33229034890907305,
+        "dice": 0.4723014995410131,
+        "ncc": 0.3752561816129429,
+        "chamfer_distance": 4.296149044004017,
+        "mean_delta_beta_0": 14.953703703703704,
+        "mean_delta_beta_1": 24.087962962962962,
+        "exact_topo_match_rate": 0.009259259259259259,
+        "depth_accuracy": 0.11574074074074074,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "baseline_cnn": {
+        "psnr": 12.164131929038346,
+        "ssim": 0.15407845605136514,
+        "iou": 0.07466738125928572,
+        "dice": 0.13697130474664726,
+        "ncc": 0.1027867880652236,
+        "chamfer_distance": 7.210954615410848,
+        "mean_delta_beta_0": 21.333333333333332,
+        "mean_delta_beta_1": 21.703703703703702,
+        "exact_topo_match_rate": 0.0,
+        "depth_accuracy": 0.46296296296296297,
+        "grammar_match_rate": "Computed in Stage 4"
+      },
+      "classical_cv": {
+        "psnr": 8.650070071034657,
+        "ssim": 0.3269945386521617,
+        "iou": 0.5221855793173347,
+        "dice": 0.652874454817428,
+        "ncc": 0.6377977778697635,
+        "chamfer_distance": 0.0,
+        "mean_delta_beta_0": 9.064814814814815,
+        "mean_delta_beta_1": 20.59259259259259,
+        "exact_topo_match_rate": 0.125,
+        "depth_accuracy": 0.2916666666666667,
+        "grammar_match_rate": 0.44907407407407407
+      },
+      "autoencoder": {
+        "psnr": 17.126320829402996,
+        "ssim": 0.34342107199187394,
+        "iou": 0.4200456709259531,
+        "dice": 0.5627113545733143,
+        "ncc": 0.586127073415733,
+        "chamfer_distance": 1.1837562045068588,
+        "mean_delta_beta_0": 19.791666666666668,
+        "mean_delta_beta_1": 20.34722222222222,
+        "exact_topo_match_rate": 0.0,
+        "depth_accuracy": "N/A",
+        "grammar_match_rate": "N/A"
+      }
+    }
+  }
+}

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KOLAM-R: Neuro-Symbolic Grammar Synthesis & Topological Reconstruction Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="kolam-icon">
+          <svg viewBox="0 0 40 40" width="32" height="32">
+            <path d="M 20 5 L 35 20 L 20 35 L 5 20 Z" fill="none" stroke="#e07a5f" stroke-width="2.5" />
+            <circle cx="20" cy="20" r="4" fill="#e07a5f" />
+            <circle cx="20" cy="10" r="2.5" fill="#f4a261" />
+            <circle cx="30" cy="20" r="2.5" fill="#f4a261" />
+            <circle cx="20" cy="30" r="2.5" fill="#f4a261" />
+            <circle cx="10" cy="20" r="2.5" fill="#f4a261" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">KOLAM-R <span class="badge">Research Prototype</span></h1>
+          <p class="brand-subtitle">Neuro-Symbolic Grammar Induction, Topological Homology & Recursive Extrapolation</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="status-indicator">
+          <span class="status-dot online"></span>
+          <span>Inference Engine: Active</span>
+        </div>
+        <button id="btn-run-all" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          Run Full Pipeline
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="workspace-grid">
+      <!-- Left Panel: Sample Presets & Input Controls -->
+      <aside class="panel panel-left">
+        <div class="panel-header">
+          <h2>1. Input Pattern & Domain Settings</h2>
+        </div>
+
+        <div class="section-card">
+          <label class="section-label">Select Canonical Benchmark Sample</label>
+          <div class="sample-preset-grid" id="preset-grid">
+            <!-- Dynamically populated presets -->
+          </div>
+        </div>
+
+        <div class="section-card">
+          <label class="section-label">Domain Gap & Synthetic Corruptions</label>
+          <div class="control-group">
+            <label>Noise Corruption Type</label>
+            <select id="corruption-select" class="form-select">
+              <option value="none">Clean (Synthetic Standard)</option>
+              <option value="salt_pepper">Salt & Pepper Noise (Real-world Sand/Chalk)</option>
+              <option value="stroke_occlusion">Partial Stroke Occlusion (Broken Loop)</option>
+              <option value="gaussian_blur">Gaussian Blur (Sensor Motion)</option>
+              <option value="affine_slant">Affine Perspective Slant (Angle View)</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>Rendering Motif Texture</label>
+            <div class="radio-pill-group" id="motif-selector">
+              <button class="pill-btn active" data-motif="M1">M1: Sharp Stroke</button>
+              <button class="pill-btn" data-motif="M2">M2: Dual Outline</button>
+              <button class="pill-btn" data-motif="M3">M3: Lotus Loop</button>
+              <button class="pill-btn" data-motif="M4">M4: Thick Ribbon</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <label class="section-label">Faculty Live Interaction</label>
+          <p class="help-text">You can edit the synthesized L-system grammar live in Panel 3 and observe instantaneous vector recompilation and topological validation.</p>
+        </div>
+      </aside>
+
+      <!-- Center-Right: The Multi-Stage Interactive Canvas & Pipeline View -->
+      <section class="panel panel-center">
+        <!-- Tab Navigation for Pipeline Stages -->
+        <div class="pipeline-tabs">
+          <button class="tab-btn active" data-tab="pipeline-view">
+            <span class="step-num">A</span> End-to-End Pipeline
+          </button>
+          <button class="tab-btn" data-tab="interactive-playground">
+            <span class="step-num">B</span> L-System Live Editor
+          </button>
+          <button class="tab-btn" data-tab="depth-sweep-view">
+            <span class="step-num">C</span> Protocol B Depth Search
+          </button>
+          <button class="tab-btn" data-tab="comparative-benchmark">
+            <span class="step-num">D</span> Paradigm Comparison
+          </button>
+        </div>
+
+        <!-- Tab 1: End-to-End Multi-Stage Visual Pipeline -->
+        <div class="tab-content active" id="tab-pipeline-view">
+          <div class="pipeline-cards-container">
+            
+            <!-- Stage 1: Input Image -->
+            <div class="stage-card">
+              <div class="stage-header">
+                <span class="stage-tag">Stage 1</span>
+                <h3>Input Kolam Pattern</h3>
+              </div>
+              <div class="canvas-wrapper">
+                <canvas id="canvas-input" width="220" height="220"></canvas>
+              </div>
+              <div class="stage-meta" id="input-meta">
+                <div><span>Rule ID:</span> <strong id="lbl-rule-id">R01 (Sikku)</strong></div>
+                <div><span>Ground Truth Depth:</span> <strong id="lbl-true-depth">d = 2</strong></div>
+                <div><span>Symmetry Group:</span> <strong id="lbl-symmetry">C4</strong></div>
+              </div>
+            </div>
+
+            <!-- Stage 2: Dual Topology Representation -->
+            <div class="stage-card">
+              <div class="stage-header">
+                <span class="stage-tag">Stage 2</span>
+                <h3>Topological Homology</h3>
+              </div>
+              <div class="canvas-wrapper">
+                <canvas id="canvas-topology" width="220" height="220"></canvas>
+              </div>
+              <div class="stage-meta">
+                <div class="metric-row">
+                  <span>Graph Cycle Rank &beta;<sub>1</sub><sup>G</sup>:</span>
+                  <strong id="lbl-betti-graph" class="metric-val highlight">4</strong>
+                </div>
+                <div class="metric-row">
+                  <span>Mask Persistent &beta;<sub>1</sub><sup>M</sup>:</span>
+                  <strong id="lbl-betti-mask" class="metric-val highlight">4</strong>
+                </div>
+                <div class="metric-row">
+                  <span>Connected Comp. &beta;<sub>0</sub>:</span>
+                  <strong id="lbl-betti-0" class="metric-val">1 (Connected)</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Stage 3: Symbolic Grammar Synthesis -->
+            <div class="stage-card stage-card-wide">
+              <div class="stage-header">
+                <span class="stage-tag">Stage 3</span>
+                <h3>Synthesized L-System Grammar</h3>
+              </div>
+              <div class="code-terminal" id="grammar-code-box">
+                <div class="terminal-header">
+                  <span class="terminal-dot red"></span>
+                  <span class="terminal-dot yellow"></span>
+                  <span class="terminal-dot green"></span>
+                  <span class="terminal-title">Grammar Synthesizer Output</span>
+                </div>
+                <pre class="terminal-body" id="lbl-grammar-string">AXIOM: X;
+RULES:
+  X -> X F + X - X - F X +;
+  F -> F F;</pre>
+              </div>
+              <div class="stage-meta">
+                <div class="status-badge success" id="badge-validity">&check; 100% Syntactically Executable</div>
+                <div><span>Angle &theta;:</span> <strong id="lbl-angle">90.0&deg;</strong></div>
+                <div><span>Grid:</span> <strong id="lbl-grid">7 &times; 7</strong></div>
+              </div>
+            </div>
+
+            <!-- Stage 4: High-Fidelity Vector Reconstruction -->
+            <div class="stage-card">
+              <div class="stage-header">
+                <span class="stage-tag">Stage 4</span>
+                <h3>Vector Reconstruction</h3>
+              </div>
+              <div class="canvas-wrapper">
+                <canvas id="canvas-reconstructed" width="220" height="220"></canvas>
+              </div>
+              <div class="stage-meta">
+                <div class="metric-row">
+                  <span>Structural SSIM:</span>
+                  <strong id="lbl-ssim" class="metric-val success">0.8924</strong>
+                </div>
+                <div class="metric-row">
+                  <span>Binary IoU:</span>
+                  <strong id="lbl-iou" class="metric-val success">0.8410</strong>
+                </div>
+                <div class="metric-row">
+                  <span>Chamfer Dist:</span>
+                  <strong id="lbl-chamfer" class="metric-val success">0.42 px</strong>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Tab 2: Interactive L-System Live Playground -->
+        <div class="tab-content" id="tab-interactive-playground">
+          <div class="playground-layout">
+            <div class="editor-pane">
+              <h3>Live Symbolic Grammar Editor</h3>
+              <p class="subtext">Edit the axiom, rewriting rules, angle, and symmetry group below to watch the procedural turtle render live in vector space.</p>
+              
+              <div class="form-group">
+                <label>Axiom String</label>
+                <input type="text" id="editor-axiom" class="form-input" value="X">
+              </div>
+
+              <div class="form-group">
+                <label>Production Rules (one per line, format: V -> Replacement)</label>
+                <textarea id="editor-rules" class="form-textarea" rows="4">X -> X F + X - X - F X +
+F -> F F</textarea>
+              </div>
+
+              <div class="slider-grid">
+                <div class="control-group">
+                  <div class="slider-header">
+                    <label>Recursion Depth (d)</label>
+                    <span id="val-depth" class="slider-val">2</span>
+                  </div>
+                  <input type="range" id="slider-depth" min="1" max="4" value="2" class="range-slider">
+                </div>
+
+                <div class="control-group">
+                  <div class="slider-header">
+                    <label>Turning Angle (&theta;&deg;)</label>
+                    <span id="val-angle" class="slider-val">90&deg;</span>
+                  </div>
+                  <input type="range" id="slider-angle" min="30" max="120" step="5" value="90" class="range-slider">
+                </div>
+
+                <div class="control-group">
+                  <label>Symmetry Group</label>
+                  <select id="select-symmetry" class="form-select">
+                    <option value="C1">C1 (No Symmetry)</option>
+                    <option value="C2">C2 (180&deg; Rotation)</option>
+                    <option value="C4" selected>C4 (90&deg; 4-Fold Rotation)</option>
+                    <option value="D1">D1 (Bilateral Reflection)</option>
+                    <option value="D2">D2 (Dihedral 2-Fold)</option>
+                    <option value="D4">D4 (Dihedral 4-Fold Octant)</option>
+                  </select>
+                </div>
+              </div>
+
+              <button id="btn-recompile-grammar" class="btn btn-secondary full-width">
+                &orarr; Recompile & Re-synthesize Pattern
+              </button>
+            </div>
+
+            <div class="render-pane">
+              <div class="canvas-card large-canvas-card">
+                <canvas id="canvas-playground" width="380" height="380"></canvas>
+                <div class="canvas-overlay-stats">
+                  <span id="play-segs">Segments: 256</span> | 
+                  <span id="play-time">Render: 2.1 ms</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Protocol B Depth Discovery -->
+        <div class="tab-content" id="tab-depth-sweep-view">
+          <div class="depth-sweep-layout">
+            <div class="sweep-info">
+              <h3>Protocol B: Bounded Analysis-by-Synthesis Depth Discovery</h3>
+              <p>Because higher recursion depths produce exponential geometric detail, direct depth classification fails on unseen depths ($d=3,4$). Protocol B renders candidates $d \in [1, 4]$ and selects $d^* = \operatorname{argmax}_d \operatorname{NCC}(\text{Render}(G, d), I_{\text{target}})$.</p>
+              
+              <div class="depth-cards-row" id="depth-candidate-row">
+                <!-- Dynamically filled with candidate renders for d=1, 2, 3, 4 -->
+              </div>
+            </div>
+            <div class="depth-chart-card">
+              <h4>Objective Metric Curves Across Depths</h4>
+              <canvas id="chart-depth-sweep" width="600" height="200"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Paradigm Comparison -->
+        <div class="tab-content" id="tab-comparative-benchmark">
+          <div class="comparative-layout">
+            <h3>Methodology Paradigm Comparison on Held-Out Recursion Depth (d &ge; 3)</h3>
+            <p class="subtext">Demonstrating why purely pixel-based CNNs and Autoencoders suffer catastrophic structural breakdown under recursive depth extrapolation.</p>
+
+            <div class="comparison-grid">
+              <div class="comp-col">
+                <div class="comp-header">
+                  <h4>Ground Truth (d=3)</h4>
+                  <span class="badge-neutral">Oracle Target</span>
+                </div>
+                <canvas id="comp-gt" width="160" height="160"></canvas>
+                <div class="comp-meta">
+                  <div>Topology: &beta;<sub>1</sub> = 4</div>
+                  <div>Resolution: Exact Vector</div>
+                </div>
+              </div>
+
+              <div class="comp-col highlight-col">
+                <div class="comp-header">
+                  <h4>Grammar Synthesis (Ours)</h4>
+                  <span class="badge-success">Symbolic Generalization</span>
+                </div>
+                <canvas id="comp-ours" width="160" height="160"></canvas>
+                <div class="comp-meta">
+                  <div>Chamfer: <strong>2.01 px</strong></div>
+                  <div>IoU: <strong>0.4442</strong> (Rank 1)</div>
+                  <div>Topology Match: <strong>68.2%</strong></div>
+                </div>
+              </div>
+
+              <div class="comp-col">
+                <div class="comp-header">
+                  <h4>Multi-Task CNN Baseline</h4>
+                  <span class="badge-warning">Depth Collapse</span>
+                </div>
+                <canvas id="comp-cnn" width="160" height="160"></canvas>
+                <div class="comp-meta">
+                  <div>Chamfer: 3.01 px (+50% error)</div>
+                  <div>IoU: 0.3705</div>
+                  <div>Exact Depth: <strong>0.00%</strong></div>
+                </div>
+              </div>
+
+              <div class="comp-col">
+                <div class="comp-header">
+                  <h4>Autoencoder Baseline</h4>
+                  <span class="badge-danger">Pixel Blurring</span>
+                </div>
+                <canvas id="comp-ae" width="160" height="160"></canvas>
+                <div class="comp-meta">
+                  <div>SSIM: 0.1982</div>
+                  <div>Topology Match: <strong>0.00%</strong></div>
+                  <div>Extrapolation: Degenerate</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- Footer Stats Bar -->
+    <footer class="app-footer">
+      <div class="footer-stat">
+        <span class="lbl">Syntactic Validity Rate:</span>
+        <span class="val success">100.0%</span>
+      </div>
+      <div class="footer-stat">
+        <span class="lbl">Held-Out Extrapolation Win Rate:</span>
+        <span class="val success">100.0% (Ours vs CNN/AE)</span>
+      </div>
+      <div class="footer-stat">
+        <span class="lbl">Topological Disambiguation:</span>
+        <span class="val highlight">R02 vs R05 (&beta;<sub>1</sub>=5 vs 0) Cleanly Separated</span>
+      </div>
+      <div class="footer-stat">
+        <span class="lbl">Dataset Scale:</span>
+        <span class="val">1,920 Patterns across 6 Rule Families</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

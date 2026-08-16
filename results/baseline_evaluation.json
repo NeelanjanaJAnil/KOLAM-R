@@ -1,0 +1,191 @@
+{
+  "model_type": "KolamCNNBaseline",
+  "benchmarks": {
+    "val": {
+      "num_samples": 216,
+      "structural_exact_match_accuracy": 0.23148148148148148,
+      "full_exact_match_accuracy": 0.23148148148148148,
+      "structural_parameters": {
+        "rule_id_accuracy": 0.7268518518518519,
+        "symmetry_accuracy": 0.6666666666666666,
+        "recursion_depth_accuracy": 1.0,
+        "grid_size_accuracy": 0.5925925925925926,
+        "angle_mae_degrees": 2.57602498266432,
+        "angle_rmse_degrees": 3.808583546859081,
+        "angle_accuracy_within_5deg": 0.8703703703703703
+      },
+      "rendering_parameters": {
+        "motif_accuracy": 1.0
+      },
+      "pair_confusion_diagnostics": {
+        "r02_confused_as_r05_rate": 0.0,
+        "r05_confused_as_r02_rate": 0.0,
+        "r03_confused_as_r04_rate": 0.9772727272727273,
+        "r04_confused_as_r03_rate": 0.4
+      }
+    },
+    "test_iid": {
+      "num_samples": 216,
+      "structural_exact_match_accuracy": 0.25,
+      "full_exact_match_accuracy": 0.25,
+      "structural_parameters": {
+        "rule_id_accuracy": 0.8472222222222222,
+        "symmetry_accuracy": 0.7314814814814815,
+        "recursion_depth_accuracy": 1.0,
+        "grid_size_accuracy": 0.4537037037037037,
+        "angle_mae_degrees": 2.6378393438127308,
+        "angle_rmse_degrees": 4.185870513454328,
+        "angle_accuracy_within_5deg": 0.875
+      },
+      "rendering_parameters": {
+        "motif_accuracy": 1.0
+      },
+      "pair_confusion_diagnostics": {
+        "r02_confused_as_r05_rate": 0.0,
+        "r05_confused_as_r02_rate": 0.0,
+        "r03_confused_as_r04_rate": 0.5,
+        "r04_confused_as_r03_rate": 0.40625
+      }
+    },
+    "test_heldout_depth": {
+      "num_samples": 480,
+      "structural_exact_match_accuracy": 0.0,
+      "full_exact_match_accuracy": 0.0,
+      "structural_parameters": {
+        "rule_id_accuracy": 0.5520833333333334,
+        "symmetry_accuracy": 0.40208333333333335,
+        "recursion_depth_accuracy": 0.24791666666666667,
+        "grid_size_accuracy": 0.33541666666666664,
+        "angle_mae_degrees": 13.646494261423747,
+        "angle_rmse_degrees": 18.24773215978921,
+        "angle_accuracy_within_5deg": 0.2625
+      },
+      "rendering_parameters": {
+        "motif_accuracy": 0.5375
+      },
+      "pair_confusion_diagnostics": {
+        "r02_confused_as_r05_rate": 0.20833333333333334,
+        "r05_confused_as_r02_rate": 0.25,
+        "r03_confused_as_r04_rate": 0.0,
+        "r04_confused_as_r03_rate": 0.0
+      }
+    }
+  },
+  "corruptions": {
+    "gaussian_noise": {
+      "num_samples": 216,
+      "structural_exact_match_accuracy": 0.004629629629629629,
+      "full_exact_match_accuracy": 0.004629629629629629,
+      "structural_parameters": {
+        "rule_id_accuracy": 0.6990740740740741,
+        "symmetry_accuracy": 0.5185185185185185,
+        "recursion_depth_accuracy": 0.6064814814814815,
+        "grid_size_accuracy": 0.2777777777777778,
+        "angle_mae_degrees": 13.59141437212626,
+        "angle_rmse_degrees": 18.29237488665636,
+        "angle_accuracy_within_5deg": 0.27314814814814814
+      },
+      "rendering_parameters": {
+        "motif_accuracy": 0.7129629629629629
+      },
+      "pair_confusion_diagnostics": {
+        "r02_confused_as_r05_rate": 0.0,
+        "r05_confused_as_r02_rate": 0.0,
+        "r03_confused_as_r04_rate": 0.025,
+        "r04_confused_as_r03_rate": 0.625
+      }
+    },
+    "rotation": {
+      "num_samples": 216,
+      "structural_exact_match_accuracy": 0.032407407407407406,
+      "full_exact_match_accuracy": 0.032407407407407406,
+      "structural_parameters": {
+        "rule_id_accuracy": 0.5879629629629629,
+        "symmetry_accuracy": 0.39351851851851855,
+        "recursion_depth_accuracy": 0.7731481481481481,
+        "grid_size_accuracy": 0.3055555555555556,
+        "angle_mae_degrees": 15.080801486968994,
+        "angle_rmse_degrees": 20.391211472152893,
+        "angle_accuracy_within_5deg": 0.28703703703703703
+      },
+      "rendering_parameters": {
+        "motif_accuracy": 0.6574074074074074
+      },
+      "pair_confusion_diagnostics": {
+        "r02_confused_as_r05_rate": 0.25,
+        "r05_confused_as_r02_rate": 0.0,
+        "r03_confused_as_r04_rate": 0.675,
+        "r04_confused_as_r03_rate": 0.125
+      }
+    },
+    "affine": {
+      "num_samples": 216,
+      "structural_exact_match_accuracy": 0.013888888888888888,
+      "full_exact_match_accuracy": 0.013888888888888888,
+      "structural_parameters": {
+        "rule_id_accuracy": 0.5787037037037037,
+        "symmetry_accuracy": 0.3611111111111111,
+        "recursion_depth_accuracy": 0.7870370370370371,
+        "grid_size_accuracy": 0.2824074074074074,
+        "angle_mae_degrees": 15.235252521656177,
+        "angle_rmse_degrees": 20.423379228478794,
+        "angle_accuracy_within_5deg": 0.24074074074074073
+      },
+      "rendering_parameters": {
+        "motif_accuracy": 0.6203703703703703
+      },
+      "pair_confusion_diagnostics": {
+        "r02_confused_as_r05_rate": 0.21428571428571427,
+        "r05_confused_as_r02_rate": 0.0,
+        "r03_confused_as_r04_rate": 0.675,
+        "r04_confused_as_r03_rate": 0.28125
+      }
+    },
+    "blur": {
+      "num_samples": 216,
+      "structural_exact_match_accuracy": 0.0,
+      "full_exact_match_accuracy": 0.0,
+      "structural_parameters": {
+        "rule_id_accuracy": 0.18981481481481483,
+        "symmetry_accuracy": 0.12962962962962962,
+        "recursion_depth_accuracy": 0.46296296296296297,
+        "grid_size_accuracy": 0.28703703703703703,
+        "angle_mae_degrees": 18.61808517244127,
+        "angle_rmse_degrees": 26.234693244536874,
+        "angle_accuracy_within_5deg": 0.41203703703703703
+      },
+      "rendering_parameters": {
+        "motif_accuracy": 0.25
+      },
+      "pair_confusion_diagnostics": {
+        "r02_confused_as_r05_rate": 0.0,
+        "r05_confused_as_r02_rate": 0.0,
+        "r03_confused_as_r04_rate": 0.275,
+        "r04_confused_as_r03_rate": 0.625
+      }
+    },
+    "stroke_dropout": {
+      "num_samples": 216,
+      "structural_exact_match_accuracy": 0.21296296296296297,
+      "full_exact_match_accuracy": 0.21296296296296297,
+      "structural_parameters": {
+        "rule_id_accuracy": 0.8287037037037037,
+        "symmetry_accuracy": 0.7175925925925926,
+        "recursion_depth_accuracy": 1.0,
+        "grid_size_accuracy": 0.49074074074074076,
+        "angle_mae_degrees": 3.2178047409764043,
+        "angle_rmse_degrees": 5.501789088169768,
+        "angle_accuracy_within_5deg": 0.8148148148148148
+      },
+      "rendering_parameters": {
+        "motif_accuracy": 0.9814814814814815
+      },
+      "pair_confusion_diagnostics": {
+        "r02_confused_as_r05_rate": 0.0,
+        "r05_confused_as_r02_rate": 0.0,
+        "r03_confused_as_r04_rate": 0.775,
+        "r04_confused_as_r03_rate": 0.1875
+      }
+    }
+  }
+}

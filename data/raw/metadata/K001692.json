@@ -1,0 +1,26 @@
+{
+  "image_id": "K001692",
+  "params": {
+    "grid_size": 7,
+    "dot_spacing": 1.0,
+    "symmetry": "D1",
+    "angle": 25.0,
+    "motif": "M4",
+    "production_rule_id": "R06",
+    "recursion_depth": 2,
+    "step_length": 1.0,
+    "random_seed": 42
+  },
+  "generator_version": "0.1.0",
+  "timestamp": "2026-08-15T09:42:06.429207+00:00",
+  "expanded_string_length": 86,
+  "num_segments": 15,
+  "num_segments_after_symmetry": 28,
+  "connectivity": "branching",
+  "bounding_box": {
+    "min_x": 0.0,
+    "min_y": -0.8452365234813984,
+    "max_x": 5.36171097079649,
+    "max_y": 2.033899228341076
+  }
+}

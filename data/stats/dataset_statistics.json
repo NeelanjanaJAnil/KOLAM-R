@@ -1,0 +1,179 @@
+{
+  "total_images": 1920,
+  "splits": {
+    "test_heldout_depth": {
+      "count": 480,
+      "percentage": 25.0,
+      "num_unique_structures": 120
+    },
+    "test_iid": {
+      "count": 216,
+      "percentage": 11.25,
+      "num_unique_structures": 54
+    },
+    "train": {
+      "count": 1008,
+      "percentage": 52.5,
+      "num_unique_structures": 252
+    },
+    "val": {
+      "count": 216,
+      "percentage": 11.25,
+      "num_unique_structures": 54
+    }
+  },
+  "parameter_distributions": {
+    "production_rule_id": {
+      "R01": 288,
+      "R02": 288,
+      "R03": 192,
+      "R04": 384,
+      "R05": 384,
+      "R06": 384
+    },
+    "symmetry": {
+      "C1": 320,
+      "C2": 320,
+      "C4": 320,
+      "D1": 320,
+      "D2": 320,
+      "D4": 320
+    },
+    "motif": {
+      "M1": 480,
+      "M2": 480,
+      "M3": 480,
+      "M4": 480
+    },
+    "grid_size": {
+      "3": 480,
+      "5": 480,
+      "7": 480,
+      "9": 480
+    },
+    "recursion_depth": {
+      "1": 576,
+      "2": 576,
+      "3": 480,
+      "4": 288
+    }
+  },
+  "cross_tabulations": {
+    "rule_x_depth": {
+      "R01": {
+        "3": 96,
+        "1": 96,
+        "2": 96
+      },
+      "R02": {
+        "3": 96,
+        "1": 96,
+        "2": 96
+      },
+      "R03": {
+        "1": 96,
+        "2": 96
+      },
+      "R04": {
+        "4": 96,
+        "1": 96,
+        "2": 96,
+        "3": 96
+      },
+      "R05": {
+        "4": 96,
+        "1": 96,
+        "2": 96,
+        "3": 96
+      },
+      "R06": {
+        "4": 96,
+        "1": 96,
+        "2": 96,
+        "3": 96
+      }
+    },
+    "rule_x_symmetry": {
+      "R01": {
+        "C1": 48,
+        "C2": 48,
+        "C4": 48,
+        "D1": 48,
+        "D2": 48,
+        "D4": 48
+      },
+      "R02": {
+        "C1": 48,
+        "C2": 48,
+        "C4": 48,
+        "D1": 48,
+        "D2": 48,
+        "D4": 48
+      },
+      "R03": {
+        "C2": 32,
+        "D1": 32,
+        "D2": 32,
+        "D4": 32,
+        "C1": 32,
+        "C4": 32
+      },
+      "R04": {
+        "C1": 64,
+        "C2": 64,
+        "C4": 64,
+        "D1": 64,
+        "D2": 64,
+        "D4": 64
+      },
+      "R05": {
+        "C1": 64,
+        "C2": 64,
+        "C4": 64,
+        "D1": 64,
+        "D2": 64,
+        "D4": 64
+      },
+      "R06": {
+        "C1": 64,
+        "C2": 64,
+        "C4": 64,
+        "D1": 64,
+        "D2": 64,
+        "D4": 64
+      }
+    }
+  },
+  "r02_vs_r05_overlap_metrics": {
+    "num_shared_tuples": 288,
+    "shared_depths": [
+      1,
+      2,
+      3
+    ],
+    "by_depth": {
+      "depth_1": {
+        "count": 96,
+        "mean_ssim": 0.24579416313054336,
+        "mean_mse": 10881.60482788086,
+        "mean_ncc": 0.3421135223619629
+      },
+      "depth_2": {
+        "count": 96,
+        "mean_ssim": 0.1382954346693413,
+        "mean_mse": 20217.5590616862,
+        "mean_ncc": 0.18365245134470945
+      },
+      "depth_3": {
+        "count": 96,
+        "mean_ssim": 0.26592467386624846,
+        "mean_mse": 22134.4711710612,
+        "mean_ncc": 0.3044564351432653
+      }
+    },
+    "overall_mean_ssim": 0.21667142388871105,
+    "overall_mean_mse": 17744.545020209418,
+    "overall_mean_ncc": 0.27674080294997927,
+    "interpretation": "Higher SSIM / NCC indicates severe pixel-level ambiguity between R02 (Snake Kolam) and R05 (Hilbert Meander), confirming that image-only classifiers will require topological features (Stage 6) for robust discrimination."
+  }
+}

@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.png
+data/raw/
+data/processed/
+output/
+logs/
+.git
+.gitignore
+.env

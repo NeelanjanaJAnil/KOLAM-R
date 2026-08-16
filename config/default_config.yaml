@@ -1,0 +1,29 @@
+# Default generator configuration for KOLAM-R Stage 1
+
+generator:
+  version: "0.1.0"
+  image_size_lo: 64
+  image_size_hi: 256
+  max_string_length: 100000
+  default_step_length: 1.0
+  default_dot_spacing: 1.0
+  image_padding: 4
+  background_color: 0
+  stroke_color: 255
+  dot_color: 128
+  dot_radius_lo: 1        # pixels at 64x64
+  dot_radius_hi: 3        # pixels at 256x256
+
+parameter_space:
+  grid_sizes: [3, 5, 7, 9]
+  symmetries: ["C1", "C2", "C4", "D1", "D2", "D4"]
+  motifs: ["M1", "M2", "M3", "M4"]
+  production_rules: ["R01", "R02", "R03", "R04", "R05", "R06"]
+  recursion_depths: [1, 2, 3, 4]
+  angles:
+    R01: 45.0
+    R02: 90.0
+    R03: 45.0
+    R04: 45.0
+    R05: 90.0
+    R06: 25.0
