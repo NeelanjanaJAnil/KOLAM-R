@@ -7,9 +7,16 @@ Canonical L-System Grammar -> Forward Generation -> Grammar Recovery -> Parametr
 
 from __future__ import annotations
 
+import io
 import json
+import sys
 from pathlib import Path
 from typing import Any
+
+# Ensure project root is in sys.path when running on Streamlit Cloud
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 import numpy as np
 from PIL import Image
