@@ -555,11 +555,15 @@ else:
     num_seg = len(t_res.segments)
     fg_px = int(np.sum(recon_img_raw > 30))
 
+# Standardize input and reconstructed images
+input_gray, input_binary, input_skel = preprocess_image(Image.fromarray(input_img_raw), target_size=256)
+recon_gray, recon_binary, recon_skel = preprocess_image(Image.fromarray(recon_img_raw), target_size=256)
+
 # Extract and recover mathematical equations
-geom_rep = input_result.metadata.geometric_representation
+geom_rep = recon_result.metadata.geometric_representation
 if geom_rep is None:
     from kolam_r.geometry.fitter import fit_segments_piecewise_parametric
-    geom_rep = fit_segments_piecewise_parametric(input_result.segments_final)
+    geom_rep = fit_segments_piecewise_parametric(recon_result.segments_final)
 
 eq_img_raw = render_equation_kolam(
     geom_rep,
