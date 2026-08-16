@@ -115,6 +115,38 @@ class BoundingBox(BaseModel):
         return self.max_y - self.min_y
 
 
+class EquationTerm(BaseModel):
+    """Mathematical equation definition for a single continuous parametric stroke or curve."""
+
+    subpath_index: int = Field(description="0-indexed identifier for the continuous stroke path")
+    expression_x: str = Field(description="Analytical formula for x(t), e.g., 'x(t) = a0 + a1*t + a2*t^2 + a3*t^3'")
+    expression_y: str = Field(description="Analytical formula for y(t), e.g., 'y(t) = b0 + b1*t + b2*t^2 + b3*t^3'")
+    t_min: float = Field(default=0.0, description="Start of parameter interval")
+    t_max: float = Field(default=1.0, description="End of parameter interval")
+    degree: int = Field(default=1, description="Polynomial degree (1=linear, 2=quadratic, 3=cubic)")
+    coefficients_x: list[float] = Field(description="Coefficients [c0, c1, ...] for x(t)")
+    coefficients_y: list[float] = Field(description="Coefficients [c0, c1, ...] for y(t)")
+    r_squared_x: float = Field(default=1.0, description="Coefficient of determination for x(t)")
+    r_squared_y: float = Field(default=1.0, description="Coefficient of determination for y(t)")
+    max_error: float = Field(default=0.0, description="Maximum Euclidean coordinate fitting error")
+
+
+class GeometricRepresentation(BaseModel):
+    """Complete mathematical geometric representation of a Kolam pattern."""
+
+    representation_type: Literal[
+        "piecewise_parametric_linear",
+        "piecewise_parametric_cubic",
+        "parametric_fourier_harmonic",
+        "recursive_grammar",
+    ] = Field(description="Mathematical representation class")
+    num_subpaths: int = Field(description="Total number of continuous mathematical subpaths")
+    equations: list[EquationTerm] = Field(default_factory=list, description="Explicit equation definitions for each subpath")
+    mean_fitting_error: float = Field(default=0.0, description="Mean Euclidean error across all curve samples")
+    max_fitting_error: float = Field(default=0.0, description="Peak Euclidean error across all curve samples")
+    is_closed_loop: bool = Field(default=False, description="Whether the curve forms a closed topological loop")
+
+
 class KolamMetadata(BaseModel):
     """Complete metadata for a generated Kolam image.
 
@@ -139,3 +171,4 @@ class KolamMetadata(BaseModel):
         description="Connectivity type from the production rule: single_stroke | multi_stroke | branching"
     )
     bounding_box: Optional[BoundingBox] = None
+    geometric_representation: Optional[GeometricRepresentation] = None

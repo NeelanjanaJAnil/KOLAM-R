@@ -17,11 +17,12 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from kolam_r.geometry.fitter import fit_segments_piecewise_parametric
 from kolam_r.lsystem.engine import LSystemEngine
 from kolam_r.lsystem.rules import get_rule
 from kolam_r.metadata import create_metadata, save_metadata
 from kolam_r.renderer.image_renderer import render_kolam
-from kolam_r.schema import BoundingBox, KolamMetadata, KolamParams
+from kolam_r.schema import BoundingBox, GeometricRepresentation, KolamMetadata, KolamParams
 from kolam_r.symmetry.transforms import apply_symmetry
 from kolam_r.turtle.interpreter import LineSegment, TurtleInterpreter, TurtleResult
 
@@ -113,7 +114,10 @@ class KolamGenerator:
             dot_spacing=params.dot_spacing,
         )
 
-        # Step 6: Build metadata
+        # Step 6: Extract continuous geometry & recover mathematical equations
+        geom_rep = fit_segments_piecewise_parametric(segments_final)
+
+        # Step 7: Build metadata
         bbox = None
         if turtle_result.min_x != float("inf"):
             bbox = BoundingBox(
@@ -131,6 +135,7 @@ class KolamGenerator:
             connectivity=rule.connectivity,
             bounding_box=bbox,
             image_id=image_id,
+            geometric_representation=geom_rep,
         )
 
         return KolamResult(

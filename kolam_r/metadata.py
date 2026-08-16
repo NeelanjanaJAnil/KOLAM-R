@@ -38,21 +38,9 @@ def create_metadata(
     connectivity: str,
     bounding_box: BoundingBox | None = None,
     image_id: str | None = None,
+    geometric_representation: Any | None = None,
 ) -> KolamMetadata:
-    """Create a complete metadata record for a generated Kolam image.
-
-    Args:
-        params: The generator parameters used.
-        expanded_string_length: Length of the expanded L-system string.
-        num_segments: Number of line segments from turtle interpretation.
-        num_segments_after_symmetry: Number of segments after symmetry transform.
-        connectivity: Connectivity type from the production rule.
-        bounding_box: Bounding box of the generated geometry.
-        image_id: Optional explicit image ID. If None, auto-generated.
-
-    Returns:
-        Complete KolamMetadata record.
-    """
+    """Create a complete metadata record for a generated Kolam image."""
     if image_id is None:
         image_id = next_image_id()
 
@@ -66,6 +54,7 @@ def create_metadata(
         num_segments_after_symmetry=num_segments_after_symmetry,
         connectivity=connectivity,
         bounding_box=bounding_box,
+        geometric_representation=geometric_representation,
     )
 
 
