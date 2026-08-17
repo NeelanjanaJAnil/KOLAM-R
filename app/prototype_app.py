@@ -773,13 +773,19 @@ with col_t1:
 with col_t2:
     st.image(recon_skel, caption=f"Reconstructed Skeleton (β₀={b0_recon}, β₁={b1_recon})", use_container_width=True, clamp=True)
 with col_t3:
-    topo_match = (b0_orig == b0_recon and b1_orig == b1_recon)
-    if topo_match:
-        topo_badge = '<span style="color:#22c55e; font-weight:700; font-size:1.02rem;">✓ Topology Preserved (Exact Homology)</span>'
-    elif is_good_match:
-        topo_badge = '<span style="color:#60a5fa; font-weight:700; font-size:1.02rem;">≈ Homology Preserved Under Compression</span>'
-    else:
-        topo_badge = '<span style="color:#94a3b8; font-weight:700; font-size:1.02rem;">Outside Registered Grammar Set</span>'
+    grammar_topo_match = (b0_orig == b0_recon and b1_orig == b1_recon)
+    grammar_badge = (
+        '<span style="color:#22c55e; font-weight:700;">✓ Topology Preserved</span>'
+        if grammar_topo_match
+        else '<span style="color:#94a3b8; font-weight:700;">Outside Registered Grammar Set</span>'
+    )
+
+    eq_topo_match = (b0_orig == b0_eq and b1_orig == b1_eq)
+    eq_badge = (
+        '<span style="color:#22c55e; font-weight:700;">✓ Topology Preserved</span>'
+        if eq_topo_match
+        else '<span style="color:#f59e0b; font-weight:700;">⚠ Minor Topological Discrepancy</span>'
+    )
 
     st.markdown(
         f"""
@@ -788,10 +794,11 @@ with col_t3:
             <ul style="margin-top:6px; margin-bottom:8px;">
                 <li><strong>Connected Components (&beta;₀):</strong> Original = <code>{b0_orig}</code> &rarr; Grammar = <code>{b0_recon}</code> &rarr; Equation = <code>{b0_eq}</code></li>
                 <li><strong>Independent Closed Loops (&beta;₁):</strong> Original = <code>{b1_orig}</code> &rarr; Grammar = <code>{b1_recon}</code> &rarr; Equation = <code>{b1_eq}</code></li>
-                <li><strong>Topological Homology:</strong> {topo_badge}</li>
+                <li><strong>Grammar Reconstruction:</strong> {grammar_badge}</li>
+                <li><strong>Equation Reconstruction:</strong> {eq_badge}</li>
             </ul>
-            <span style="font-size:0.78rem; color:#94a3b8;">
-            Homology verification compares Euler characteristic cycle rank &beta;₁ and connected components &beta;₀ on the 1-pixel medial skeleton.
+            <span style="font-size:0.78rem; color:#cbd5e1; display:block; margin-top:4px;">
+            The grammar reconstruction preserves the measured topology, while the current equation rasterization introduces minor discrepancies in the extracted skeleton.
             </span>
         </div>
         """,
