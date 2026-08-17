@@ -468,14 +468,16 @@ CANONICAL_BENCHMARKS = {
 
 # Resolve Active Demonstration Mode
 active_mode = "CONTROLLED_DEMO"
-selected_rule_key = "R01"
+selected_rule_key = "R03"
 
 if uploaded_file is not None:
     active_mode = "EXPERIMENTAL_UPLOAD"
+elif btn_r01_demo or btn_r03:
+    selected_rule_key = "R03"
+elif btn_r01:
+    selected_rule_key = "R01"
 elif btn_r02:
     selected_rule_key = "R02"
-elif btn_r03:
-    selected_rule_key = "R03"
 elif btn_r04:
     selected_rule_key = "R04"
 elif btn_r05:
@@ -483,8 +485,8 @@ elif btn_r05:
 elif btn_r06:
     selected_rule_key = "R06"
 else:
-    # Default: Primary R01 Demo
-    selected_rule_key = "R01"
+    # Default: Canonical R03 Demo (Kolam Tile)
+    selected_rule_key = "R03"
 
 generator = KolamGenerator()
 engine = LSystemEngine()
