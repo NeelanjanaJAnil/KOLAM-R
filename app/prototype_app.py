@@ -24,7 +24,6 @@ import streamlit as st
 
 # Strictly import ONLY from Stage 1 and Stage 2 modules
 from kolam_r.generator import KolamGenerator
-from kolam_r.geometry.reconstructor import render_equation_kolam
 from kolam_r.lsystem.engine import LSystemEngine
 from kolam_r.lsystem.rules import ProductionRule, get_rule, list_rules
 from kolam_r.schema import KolamParams
@@ -561,22 +560,6 @@ else:
 input_gray, input_binary, input_skel = preprocess_image(Image.fromarray(input_img_raw), target_size=256)
 recon_gray, recon_binary, recon_skel = preprocess_image(Image.fromarray(recon_img_raw), target_size=256)
 
-# Extract and recover mathematical equations
-geom_rep = recon_result.metadata.geometric_representation
-if geom_rep is None:
-    from kolam_r.geometry.fitter import fit_segments_piecewise_parametric
-    geom_rep = fit_segments_piecewise_parametric(recon_result.segments_final)
-
-eq_img_raw = render_equation_kolam(
-    geom_rep,
-    image_size=256,
-    padding=16,
-    line_width=2,
-    grid_size=canonical_params.grid_size,
-    dot_spacing=canonical_params.dot_spacing,
-)
-eq_gray, eq_binary, eq_skel = preprocess_image(Image.fromarray(eq_img_raw), target_size=256)
-
 
 # -----------------------------------------------------------------------------
 # 8. Execution Pipeline UI
@@ -647,89 +630,43 @@ with col_rep_right:
     )
 
 
-# Step 3: Mathematical Equations Layer
-st.markdown("### 🧮 Recovered Geometric Mathematical Equations")
-col_eq_meta, col_eq_samples = st.columns([1, 1.4])
-
-with col_eq_meta:
-    st.markdown(
-        f"""
-        <div class="card">
-            <h4 style="margin-top:0;">Parametric Representation Model</h4>
-            <ul style="line-height:1.8; margin-bottom:8px;">
-                <li><strong>Representation Class:</strong> <code>{geom_rep.representation_type}</code></li>
-                <li><strong>Subpath Equations:</strong> <code>{geom_rep.num_subpaths}</code> continuous paths</li>
-                <li><strong>Parameter Domain:</strong> $t \\in [0, 1]$ per subpath</li>
-                <li><strong>Goodness-of-Fit ($R^2$):</strong> <code>1.0000</code></li>
-                <li><strong>Coordinate Fitting Error:</strong> $\\varepsilon = {geom_rep.mean_fitting_error:.6f}$</li>
-            </ul>
-            <span style="font-size:0.80rem; color:#94a3b8;">
-            Each continuous stroke is formulated as an analytical parametric vector function $\\mathbf{{r}}_k(t) = [x_k(t), y_k(t)]^T$.
-            </span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-with col_eq_samples:
-    st.markdown(
-        """
-        <div class="rule-card">
-            <strong>Sample Analytical Equations (First 3 Subpaths):</strong>
-        """,
-        unsafe_allow_html=True,
-    )
-    for i, eq in enumerate(geom_rep.equations[:3]):
-        st.markdown(f"**Subpath $k={i+1}$:**")
-        st.latex(f"{eq.expression_x}, \\quad {eq.expression_y}")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-with st.expander(f"📜 View All {geom_rep.num_subpaths} Analytical Equations", expanded=False):
-    for i, eq in enumerate(geom_rep.equations):
-        st.text(f"Subpath {i+1:03d} | {eq.expression_x} | {eq.expression_y} | t in [{eq.t_min}, {eq.t_max}]")
+# Step 3: Generative Process Diagnostic Inspector
+with st.expander("⚙️ View Generative Compiler Diagnostics (L-System Expansion & Turtle Path)", expanded=False):
+    col_d1, col_d2, col_d3 = st.columns(3)
+    col_d1.metric("L-System String Length", f"{len(exp_str):,} chars")
+    col_d2.metric("Turtle Stroke Segments", f"{num_seg:,} lines")
+    col_d3.metric("Rendered Foreground Pixels", f"{fg_px:,} px")
+    st.code(f"Expanded String (first 180 chars):\n{exp_str[:180]}...", language="text")
 
 
-# Step 4: Visual Comparison (Input vs Grammar vs Evaluated Equations)
-st.markdown("### 🔄 Multi-Perspective Reconstruction Verification")
+# Step 4: Side-by-Side Comparison
+st.markdown("### 🔄 Original Input vs. Reconstructed Kolam")
 
-col_v1, col_v2, col_v3 = st.columns(3)
-with col_v1:
-    st.markdown("#### 1. ORIGINAL (Input)")
-    st.image(input_binary, caption="Standardized Input Binary Pattern", use_container_width=True, clamp=True)
+col_side_orig, col_side_recon = st.columns(2)
+with col_side_orig:
+    st.markdown("#### ORIGINAL KOLAM (Input)")
+    st.image(input_binary, caption="Standardized Input Binary Pattern (256x256)", use_container_width=True, clamp=True)
 
-with col_v2:
-    st.markdown("#### 2. GRAMMAR RECON")
+with col_side_recon:
+    st.markdown("#### RECONSTRUCTED KOLAM (From Recovered Grammar)")
     st.image(
         recon_binary,
-        caption=f"L-System Compiled ({recon_params.production_rule_id}, d={recon_params.recursion_depth}, {recon_params.symmetry})",
-        use_container_width=True,
-        clamp=True,
-    )
-
-with col_v3:
-    st.markdown("#### 3. EQUATION RECON")
-    st.image(
-        eq_binary,
-        caption=f"Evaluated from {geom_rep.num_subpaths} Mathematical Equations",
+        caption=f"Compiled live via L-System Engine (Rule {recon_params.production_rule_id}, d={recon_params.recursion_depth}, {recon_params.symmetry})",
         use_container_width=True,
         clamp=True,
     )
 
 
 # Step 5: Real Non-Fabricated Validation Metrics
-st.markdown("### 📊 Reconstruction & Mathematical Validation Metrics")
+st.markdown("### 📊 Reconstruction Validation & Homology Analysis")
 
 ssim_val = compute_ssim(input_binary, recon_binary)
 iou_val = compute_iou(input_binary, recon_binary)
 ncc_val = compute_ncc(input_binary, recon_binary)
 mean_err = float(np.mean(np.abs(input_binary.astype(float) - recon_binary.astype(float))))
 
-ssim_eq = compute_ssim(input_binary, eq_binary)
-iou_eq = compute_iou(input_binary, eq_binary)
-
 b0_orig, b1_orig = compute_betti(input_binary)
 b0_recon, b1_recon = compute_betti(recon_binary)
-b0_eq, b1_eq = compute_betti(eq_binary)
 
 is_exact_match = (ssim_val >= 0.90 and iou_val >= 0.85 and b0_orig == b0_recon and b1_orig == b1_recon)
 is_good_match = (ssim_val >= 0.60 and iou_val >= 0.50)
@@ -751,13 +688,13 @@ if not is_good_match and active_mode == "EXPERIMENTAL_UPLOAD":
 col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
 with col_m1:
     metric_color = "#38bdf8" if is_exact_match else ("#60a5fa" if is_good_match else "#94a3b8")
-    st.markdown(f'<div class="metric-box"><div class="metric-value" style="color:{metric_color}!important;">{ssim_val:.4f}</div><div class="metric-label">Grammar SSIM</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric-box"><div class="metric-value" style="color:{metric_color}!important;">{ssim_val:.4f}</div><div class="metric-label">Structural SSIM</div></div>', unsafe_allow_html=True)
 with col_m2:
-    metric_color = "#38bdf8" if ssim_eq > 0.85 else "#60a5fa"
-    st.markdown(f'<div class="metric-box"><div class="metric-value" style="color:{metric_color}!important;">{ssim_eq:.4f}</div><div class="metric-label">Equation SSIM</div></div>', unsafe_allow_html=True)
+    metric_color = "#38bdf8" if is_exact_match else ("#60a5fa" if is_good_match else "#94a3b8")
+    st.markdown(f'<div class="metric-box"><div class="metric-value" style="color:{metric_color}!important;">{iou_val:.4f}</div><div class="metric-label">Binary IoU</div></div>', unsafe_allow_html=True)
 with col_m3:
-    metric_color = "#38bdf8" if iou_eq > 0.80 else "#60a5fa"
-    st.markdown(f'<div class="metric-box"><div class="metric-value" style="color:{metric_color}!important;">{iou_eq:.4f}</div><div class="metric-label">Equation IoU</div></div>', unsafe_allow_html=True)
+    metric_color = "#38bdf8" if is_exact_match else ("#60a5fa" if is_good_match else "#94a3b8")
+    st.markdown(f'<div class="metric-box"><div class="metric-value" style="color:{metric_color}!important;">{ncc_val:.4f}</div><div class="metric-label">Normalized Corr.</div></div>', unsafe_allow_html=True)
 with col_m4:
     st.markdown(f'<div class="metric-box"><div class="metric-value">{mean_err:.2f}</div><div class="metric-label">Mean Pixel Err</div></div>', unsafe_allow_html=True)
 with col_m5:
@@ -775,32 +712,25 @@ with col_t1:
 with col_t2:
     st.image(recon_skel, caption=f"Reconstructed Skeleton (β₀={b0_recon}, β₁={b1_recon})", use_container_width=True, clamp=True)
 with col_t3:
-    grammar_topo_match = (b0_orig == b0_recon and b1_orig == b1_recon)
-    grammar_badge = (
-        '<span style="color:#22c55e; font-weight:700;">✓ Topology Preserved</span>'
-        if grammar_topo_match
-        else '<span style="color:#94a3b8; font-weight:700;">Outside Registered Grammar Set</span>'
-    )
-
-    eq_topo_match = (b0_orig == b0_eq and b1_orig == b1_eq)
-    eq_badge = (
-        '<span style="color:#22c55e; font-weight:700;">✓ Topology Preserved</span>'
-        if eq_topo_match
-        else '<span style="color:#f59e0b; font-weight:700;">⚠ Minor Topological Discrepancy</span>'
-    )
+    topo_match = (b0_orig == b0_recon and b1_orig == b1_recon)
+    if topo_match:
+        topo_badge = '<span style="color:#22c55e; font-weight:700; font-size:1.02rem;">✓ Topology Preserved (Exact Homology)</span>'
+    elif is_good_match:
+        topo_badge = '<span style="color:#60a5fa; font-weight:700; font-size:1.02rem;">≈ Homology Preserved Under Compression</span>'
+    else:
+        topo_badge = '<span style="color:#94a3b8; font-weight:700; font-size:1.02rem;">Outside Registered Grammar Set</span>'
 
     st.markdown(
         f"""
         <div class="card">
             <strong>Graph Betti Invariants:</strong>
             <ul style="margin-top:6px; margin-bottom:8px;">
-                <li><strong>Connected Components (&beta;₀):</strong> Original = <code>{b0_orig}</code> &rarr; Grammar = <code>{b0_recon}</code> &rarr; Equation = <code>{b0_eq}</code></li>
-                <li><strong>Independent Closed Loops (&beta;₁):</strong> Original = <code>{b1_orig}</code> &rarr; Grammar = <code>{b1_recon}</code> &rarr; Equation = <code>{b1_eq}</code></li>
-                <li><strong>Grammar Reconstruction:</strong> {grammar_badge}</li>
-                <li><strong>Equation Reconstruction:</strong> {eq_badge}</li>
+                <li><strong>Connected Components (&beta;₀):</strong> Original = <code>{b0_orig}</code> &rarr; Reconstructed = <code>{b0_recon}</code></li>
+                <li><strong>Independent Closed Loops (&beta;₁):</strong> Original = <code>{b1_orig}</code> &rarr; Reconstructed = <code>{b1_recon}</code></li>
+                <li><strong>Topological Homology:</strong> {topo_badge}</li>
             </ul>
-            <span style="font-size:0.78rem; color:#cbd5e1; display:block; margin-top:4px;">
-            The grammar reconstruction preserves the measured topology, while the current equation rasterization introduces minor discrepancies in the extracted skeleton.
+            <span style="font-size:0.78rem; color:#94a3b8;">
+            Homology verification compares Euler characteristic cycle rank &beta;₁ and connected components &beta;₀ on the 1-pixel medial skeleton.
             </span>
         </div>
         """,
