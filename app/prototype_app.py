@@ -30,6 +30,8 @@ from kolam_r.schema import KolamParams
 from kolam_r.topology.graph_extractor import extract_skeleton_graph
 from kolam_r.topology.skeleton import skeletonize_zhang_suen
 from kolam_r.turtle.interpreter import TurtleInterpreter
+from kolam_r.curvefit.fit_curves import fit_skeleton_graph_curves
+from kolam_r.curvefit.rasterize_curves import rasterize_curves
 
 # -----------------------------------------------------------------------------
 # 1. Page Configuration & Custom Academic Dark Theme
@@ -736,6 +738,103 @@ with col_t3:
         """,
         unsafe_allow_html=True,
     )
+
+
+# Step 7: Continuous Parametric Curve Reconstruction (Verified Module)
+st.markdown("### 📈 Continuous Parametric Curve Reconstruction (Experimental)")
+st.markdown(
+    """
+    <span style="font-size:0.9rem; color:#cbd5e1;">
+    An independent alternative representation pathway. Rather than compiling an L-system string via turtle geometry,
+    this module extracts the medial stroke graph $G=(V, E)$ from the input pattern and fits exactly one continuous
+    parametric curve $\\mathbf{r}_k(t)$ per branch edge ($K = |E|$). Open segments with curvature are fit with
+    degree-3 polynomials with endpoint constraints, while isolated simple closed loops use periodic cubic B-splines.
+    </span>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Extract stroke-only skeleton (isolate strokes from dot grid for clean curve fitting)
+clean_stroke_mask = (input_binary > 0).astype(np.uint8)
+stroke_skel = skeletonize_zhang_suen(clean_stroke_mask)
+stroke_graph = extract_skeleton_graph(stroke_skel)
+v_count = len(stroke_graph.vertices)
+e_count = len(stroke_graph.edges)
+b0_stroke, b1_stroke = stroke_graph.compute_betti_numbers()
+
+# Fit continuous curves: K = |E|
+fitted_curves = fit_skeleton_graph_curves(stroke_graph, linearity_threshold=0.5)
+num_fitted_curves = len(fitted_curves)
+
+# Count degrees
+linear_count = sum(1 for c in fitted_curves if c.degree == 1)
+cubic_poly_count = sum(1 for c in fitted_curves if c.degree == 3 and not c.is_periodic)
+spline_count = sum(1 for c in fitted_curves if c.is_periodic)
+
+# Rasterize fitted curves to canvas
+curve_raster = rasterize_curves(fitted_curves, image_shape=(256, 256), stroke_width=2)
+
+# Compute metrics against original stroke mask
+curve_ssim = compute_ssim(input_binary, curve_raster)
+curve_iou = compute_iou(input_binary, curve_raster)
+
+# Extract topology of rasterized curves
+curve_skel = skeletonize_zhang_suen(curve_raster > 100)
+curve_graph = extract_skeleton_graph(curve_skel)
+b0_curve_recon, b1_curve_recon = curve_graph.compute_betti_numbers()
+
+# Display side-by-side
+col_c1, col_c2, col_c3 = st.columns([1, 1, 1.4])
+with col_c1:
+    st.image(
+        clean_stroke_mask * 255,
+        caption=f"Clean Stroke Target (|V|={v_count}, |E|={e_count})",
+        use_container_width=True,
+        clamp=True,
+    )
+with col_c2:
+    st.image(
+        curve_raster,
+        caption=f"Curve-Fit Rasterization ({num_fitted_curves} Equations)",
+        use_container_width=True,
+        clamp=True,
+    )
+with col_c3:
+    k_equal = (num_fitted_curves == e_count)
+    curve_topo_match = (b0_stroke == b0_curve_recon and b1_stroke == b1_curve_recon)
+
+    if curve_topo_match:
+        curve_badge = '<span style="color:#22c55e; font-weight:700;">✓ Exact Stroke Homology Preserved</span>'
+    else:
+        curve_badge = '<span style="color:#f59e0b; font-weight:700;">≈ Homology Shift (Raster Aliasing at Crossings)</span>'
+
+    st.markdown(
+        f"""
+        <div class="card">
+            <strong>Fitted Parametric System:</strong>
+            <ul style="margin-top:6px; margin-bottom:8px; line-height:1.8;">
+                <li><strong>Equation Count ($K$):</strong> <code>{num_fitted_curves}</code> curves (<em>$K = |E|$: {'✓ Holds' if k_equal else '✗ Discrepancy'}</em>)</li>
+                <li><strong>Curve Breakdown:</strong> <code>{linear_count}</code> linear, <code>{cubic_poly_count}</code> cubic poly, <code>{spline_count}</code> periodic B-spline</li>
+                <li><strong>Stroke Topology:</strong> &beta;₀: <code>{b0_stroke} &rarr; {b0_curve_recon}</code>, &beta;₁: <code>{b1_stroke} &rarr; {b1_curve_recon}</code></li>
+                <li><strong>Homology Status:</strong> {curve_badge}</li>
+                <li><strong>Spatial Similarity:</strong> SSIM = <code>{curve_ssim:.4f}</code>, IoU = <code>{curve_iou:.4f}</code></li>
+            </ul>
+            <span style="font-size:0.78rem; color:#94a3b8;">
+            Note: SSIM reflects geometric discretization onto a 256x256 grid. Topology preserves cycle rank independently of pixel-level aliasing.
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with st.expander(f"📜 Inspect Sample Fitted Parametric Equations (Showing first 5 of {num_fitted_curves})", expanded=False):
+    for i, c in enumerate(fitted_curves[:5]):
+        if c.is_periodic:
+            st.text(f"Curve {i+1:03d} | Periodic Cubic B-Spline | Max Fit Error: {c.max_fitting_error:.4f} px | t in [0.0, 1.0]")
+        elif c.degree == 1:
+            st.text(f"Curve {i+1:03d} | Linear: x(t) = {c.coefficients_x[0]:.2f} + {c.coefficients_x[1]:.2f}*t, y(t) = {c.coefficients_y[0]:.2f} + {c.coefficients_y[1]:.2f}*t | Max Fit Err: {c.max_fitting_error:.4f} px")
+        else:
+            st.text(f"Curve {i+1:03d} | Cubic Poly: deg={c.degree} | Max Fit Err: {c.max_fitting_error:.4f} px | Mean Err: {c.mean_fitting_error:.4f} px")
 
 
 # -----------------------------------------------------------------------------

@@ -21,6 +21,7 @@ class SkeletonGraph:
     degrees: dict[int, int] = field(default_factory=dict)
     connected_components: int = 0
     cycle_rank_beta_1: int = 0
+    edge_paths: list[list[tuple[float, float]]] = field(default_factory=list)  # (row, col) coordinate sequences per edge
 
     def compute_betti_numbers(self) -> tuple[int, int]:
         """Compute (beta_0, beta_1) of this graph."""
@@ -53,14 +54,14 @@ def extract_skeleton_graph(skeleton: np.ndarray) -> SkeletonGraph:
         skeleton: 2D binary array of uint8 values in {0, 1}.
 
     Returns:
-        SkeletonGraph with vertices, edges, and Betti numbers.
+        SkeletonGraph with vertices, edges, edge_paths, and Betti numbers.
     """
     skel = (skeleton > 0).astype(np.uint8)
     h, w = skel.shape
 
     pixels = [tuple(p) for p in np.argwhere(skel > 0)]
     if not pixels:
-        return SkeletonGraph(vertices=[], edges=[], degrees={}, connected_components=0, cycle_rank_beta_1=0)
+        return SkeletonGraph(vertices=[], edges=[], degrees={}, connected_components=0, cycle_rank_beta_1=0, edge_paths=[])
 
     pixel_set = set(pixels)
 
@@ -90,6 +91,7 @@ def extract_skeleton_graph(skeleton: np.ndarray) -> SkeletonGraph:
 
     all_vertices: list[tuple[float, float]] = []
     all_edges: list[tuple[int, int]] = []
+    all_edge_paths: list[list[tuple[float, float]]] = []
 
     # 3. Process each connected component independently
     for comp in components:
@@ -98,9 +100,23 @@ def extract_skeleton_graph(skeleton: np.ndarray) -> SkeletonGraph:
         if not special_pixels:
             # Isolated closed simple cycle (all pixels have degree 2)
             seed = next(iter(comp))
+            loop_path = [seed]
+            visited_loop = {seed}
+            curr = seed
+            while True:
+                nbrs = [n for n in neighbor_map[curr] if n not in visited_loop]
+                if not nbrs:
+                    break
+                next_p = nbrs[0]
+                visited_loop.add(next_p)
+                loop_path.append(next_p)
+                curr = next_p
+            loop_path.append(seed)  # Close the loop
+
             v_idx = len(all_vertices)
             all_vertices.append((float(seed[0]), float(seed[1])))
             all_edges.append((v_idx, v_idx))
+            all_edge_paths.append([(float(r), float(c)) for r, c in loop_path])
             continue
 
         junction_pixels = {p for p in comp if len(neighbor_map[p]) >= 3}
@@ -157,6 +173,9 @@ def extract_skeleton_graph(skeleton: np.ndarray) -> SkeletonGraph:
                     end_v = pixel_to_v_idx[first_step]
                     if start_v != end_v:
                         all_edges.append((start_v, end_v))
+                        v_start_coord = all_vertices[start_v]
+                        v_end_coord = all_vertices[end_v]
+                        all_edge_paths.append([v_start_coord, (float(start_p[0]), float(start_p[1])), (float(first_step[0]), float(first_step[1])), v_end_coord])
                     visited_branch_steps.add(step_key)
                     visited_branch_steps.add(rev_step_key)
                     continue
@@ -164,7 +183,7 @@ def extract_skeleton_graph(skeleton: np.ndarray) -> SkeletonGraph:
                 # Trace chain of degree-2 path pixels
                 prev = start_p
                 curr = first_step
-                path_len = 1
+                path_pixels = [start_p, first_step]
                 visited_branch_steps.add(step_key)
                 visited_branch_steps.add(rev_step_key)
 
@@ -177,12 +196,16 @@ def extract_skeleton_graph(skeleton: np.ndarray) -> SkeletonGraph:
                     visited_branch_steps.add((next_p, curr))
                     prev = curr
                     curr = next_p
-                    path_len += 1
+                    path_pixels.append(curr)
 
                 if curr in pixel_to_v_idx:
                     end_v = pixel_to_v_idx[curr]
-                    if start_v != end_v or path_len > 3:
+                    if start_v != end_v or len(path_pixels) > 3:
                         all_edges.append((start_v, end_v))
+                        v_start_coord = all_vertices[start_v]
+                        v_end_coord = all_vertices[end_v]
+                        coord_seq = [v_start_coord] + [(float(r), float(c)) for r, c in path_pixels] + [v_end_coord]
+                        all_edge_paths.append(coord_seq)
 
     # Compute node degrees
     degrees: dict[int, int] = {i: 0 for i in range(len(all_vertices))}
@@ -196,6 +219,7 @@ def extract_skeleton_graph(skeleton: np.ndarray) -> SkeletonGraph:
         edges=all_edges,
         degrees=degrees,
         connected_components=len(components),
+        edge_paths=all_edge_paths,
     )
     graph.compute_betti_numbers()
     return graph

@@ -71,7 +71,7 @@ def render_equation_kolam(
 
     # Render dot grid if requested
     if grid_size is not None and grid_size > 0:
-        dot_radius = max(1.0, 2.0 * scale * 0.08)
+        dot_radius = 1 if image_size <= 64 else 3
         offset = (grid_size - 1) * dot_spacing / 2.0
         for r in range(grid_size):
             for c in range(grid_size):
