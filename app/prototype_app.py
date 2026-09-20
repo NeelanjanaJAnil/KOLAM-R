@@ -615,6 +615,9 @@ with col_mf4:
         unsafe_allow_html=True,
     )
 
+if np.std(gray_256) < 1.0:
+    st.info("ℹ️ **Degenerate Uniform Input:** The input canvas has zero variance (blank field). SSIM is mathematically reported as 0.0000; the standard unregularized background-stabilization artifact (~0.52) has been explicitly suppressed to prevent misleading similarity claims.")
+
 # -----------------------------------------------------------------------------
 # 13. SECTION 6: Topological Homology Validation (Stage 6)
 # -----------------------------------------------------------------------------

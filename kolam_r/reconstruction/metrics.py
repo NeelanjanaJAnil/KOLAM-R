@@ -62,6 +62,15 @@ def compute_ssim(
     a = img1.astype(np.float64)
     b = img2.astype(np.float64)
 
+    std_a = np.std(a)
+    std_b = np.std(b)
+    if std_a < 1e-4 or std_b < 1e-4:
+        # Degenerate case: one or both inputs are flat uniform fields (zero variance).
+        # Standard formula yields false positive artifacts (~0.52) from stabilizing constants c1, c2
+        # matching mutual background pixels. If both are identical uniform constants, SSIM = 1.0;
+        # if one is empty and the other contains pattern structure, SSIM = 0.0.
+        return 1.0 if np.allclose(a, b) else 0.0
+
     c1 = (k1 * max_val) ** 2
     c2 = (k2 * max_val) ** 2
 
