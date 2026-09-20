@@ -30,21 +30,38 @@ class TopologicalInvariants:
         return asdict(self)
 
 
-def compute_graph_betti_numbers(binary_mask: np.ndarray) -> tuple[int, int]:
+def compute_graph_betti_numbers(binary_mask: np.ndarray, threshold: int = 200) -> tuple[int, int]:
     """Compute (graph_beta_0, graph_beta_1) from a binary mask via skeletonization."""
-    skel = skeletonize_zhang_suen(binary_mask)
+    if binary_mask.dtype == bool:
+        mask = binary_mask.astype(np.uint8)
+    elif binary_mask.max() <= 1:
+        mask = (binary_mask > 0).astype(np.uint8)
+    else:
+        mask = (binary_mask > threshold).astype(np.uint8)
+    skel = skeletonize_zhang_suen(mask)
     graph = extract_skeleton_graph(skel)
     return graph.compute_betti_numbers()
 
 
-def compute_mask_betti_numbers(binary_mask: np.ndarray) -> tuple[int, int]:
+def compute_mask_betti_numbers(binary_mask: np.ndarray, threshold: int = 200) -> tuple[int, int]:
     """Compute (mask_beta_0, mask_beta_1) from a binary mask via GUDHI cubical complex."""
-    return compute_mask_betti_gudhi(binary_mask)
+    if binary_mask.dtype == bool:
+        mask = binary_mask.astype(np.uint8)
+    elif binary_mask.max() <= 1:
+        mask = (binary_mask > 0).astype(np.uint8)
+    else:
+        mask = (binary_mask > threshold).astype(np.uint8)
+    return compute_mask_betti_gudhi(mask)
 
 
-def extract_all_topological_invariants(binary_mask: np.ndarray) -> TopologicalInvariants:
+def extract_all_topological_invariants(binary_mask: np.ndarray, threshold: int = 200) -> TopologicalInvariants:
     """Extract both Graph and Mask topological invariants from a binary pattern."""
-    mask = (binary_mask > 30).astype(np.uint8)
+    if binary_mask.dtype == bool:
+        mask = binary_mask.astype(np.uint8)
+    elif binary_mask.max() <= 1:
+        mask = (binary_mask > 0).astype(np.uint8)
+    else:
+        mask = (binary_mask > threshold).astype(np.uint8)
 
     # 1. Stroke Skeleton Graph
     skel = skeletonize_zhang_suen(mask)

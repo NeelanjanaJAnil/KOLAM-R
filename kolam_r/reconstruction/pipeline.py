@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from PIL import Image
 import torch
 
 from kolam_r.grammar.executor import GrammarExecutor, ParsedGrammar
@@ -41,6 +42,9 @@ class ReconstructionResult:
     parameters: dict[str, Any]
     grammar_string: str
     metrics: ReconstructionMetrics | None = None
+    is_syntactically_valid: bool = True
+    error_message: str | None = None
+    token_confidence: float | None = None  # Real geometric mean probability of predicted tokens
 
 
 class ReconstructionPipeline:
@@ -85,18 +89,20 @@ class ReconstructionPipeline:
         """Convert input image to normalized torch.Tensor and (64, 64) uint8 numpy array."""
         if isinstance(image, torch.Tensor):
             if image.ndim == 2:
-                img_t = image.unsqueeze(0).unsqueeze(0).float() / 255.0
                 raw_np = image.cpu().numpy().astype(np.uint8)
             elif image.ndim == 3:
-                img_t = image.unsqueeze(0).float() / 255.0
                 raw_np = image[0].cpu().numpy().astype(np.uint8)
             else:
-                img_t = image.float() / 255.0
                 raw_np = image[0, 0].cpu().numpy().astype(np.uint8)
         else:
-            raw_np = image.astype(np.uint8)
-            img_t = torch.tensor(raw_np, dtype=torch.float32).unsqueeze(0).unsqueeze(0) / 255.0
+            raw_np = np.array(image, dtype=np.uint8)
 
+        # Ensure spatial dimensions are strictly (64, 64) for visual encoder
+        if raw_np.shape != (64, 64):
+            pil_im = Image.fromarray(raw_np)
+            raw_np = np.array(pil_im.resize((64, 64), Image.Resampling.BILINEAR), dtype=np.uint8)
+
+        img_t = torch.tensor(raw_np, dtype=torch.float32).unsqueeze(0).unsqueeze(0) / 255.0
         return img_t.to(self.device), raw_np
 
     def reconstruct_from_grammar(
@@ -122,12 +128,22 @@ class ReconstructionPipeline:
         img_t, target_raw = self._prepare_tensor(image)
 
         with torch.no_grad():
-            gen_token_ids, aux_preds = self.grammar_model.generate(img_t, max_length=110)
+            gen_token_ids, aux_preds = self.grammar_model.generate(
+                img_t, max_length=110, return_probabilities=True
+            )
 
         # Decode grammar string
         tokens_list = gen_token_ids[0].cpu().tolist()
         grammar_str = self.tokenizer.decode(tokens_list, remove_special_tokens=True)
         parsed = self.executor.parse_grammar_string(grammar_str)
+
+        # Real token confidence (geometric mean of output step probabilities)
+        token_conf = None
+        if "token_probabilities" in aux_preds:
+            p_tensor = aux_preds["token_probabilities"][0].cpu().numpy().flatten()
+            valid_p = p_tensor[p_tensor > 0]
+            if len(valid_p) > 0:
+                token_conf = float(np.exp(np.mean(np.log(valid_p))))
 
         # Auxiliary predictions
         idx_to_sym = ["C1", "C2", "C4", "D1", "D2", "D4"]
@@ -135,6 +151,52 @@ class ReconstructionPipeline:
         pred_sym = idx_to_sym[int(aux_preds["pred_symmetry"][0].cpu())]
         pred_grid = idx_to_grid[int(aux_preds["pred_grid_size"][0].cpu())]
         pred_angle = float(aux_preds["pred_angle"][0].cpu())
+
+        # Match closest canonical rule family as reference aid (NOT classification)
+        best_rule_match = ("Unknown", "Custom L-System", 0.0)
+        for r_id, r_obj in RULE_REGISTRY.items():
+            can_str = self.tokenizer.rule_to_grammar_string(r_obj)
+            if grammar_str == can_str:
+                best_rule_match = (r_id, r_obj.name, 1.0)
+                break
+            pred_toks = set(self.tokenizer.tokenize(grammar_str))
+            can_toks = set(self.tokenizer.tokenize(can_str))
+            sim = len(pred_toks & can_toks) / max(1, len(pred_toks | can_toks))
+            if sim > best_rule_match[2]:
+                best_rule_match = (r_id, r_obj.name, sim)
+
+        tokens_decoded = [
+            self.tokenizer.vocab.id_to_token.get(t, f"<{t}>")
+            for t in tokens_list
+            if t not in (self.tokenizer.vocab.pad_idx, self.tokenizer.vocab.bos_idx, self.tokenizer.vocab.eos_idx)
+        ]
+
+        # If grammar is not syntactically executable, return gracefully without failing
+        if not parsed.is_valid:
+            empty_img = np.zeros_like(target_raw)
+            return ReconstructionResult(
+                method="grammar_program_synthesis",
+                image=empty_img,
+                mask=empty_img,
+                segments=[],
+                bbox=BoundingBox(0.0, 0.0, 0.0, 0.0),
+                parameters={
+                    "depth": 0,
+                    "symmetry": pred_sym,
+                    "angle": pred_angle,
+                    "grid_size": pred_grid,
+                    "motif": motif,
+                    "tokens": tokens_decoded,
+                    "closest_canonical_rule": best_rule_match[0],
+                    "closest_canonical_name": best_rule_match[1],
+                    "canonical_similarity": best_rule_match[2],
+                },
+                grammar_string=grammar_str,
+                metrics=None,
+                is_syntactically_valid=False,
+                error_message=parsed.error_message,
+                token_confidence=token_conf,
+            )
 
         # Discovered Depth search (Protocol B) or Oracle
         if not use_discovered_depth and oracle_depth is not None:
@@ -170,7 +232,8 @@ class ReconstructionPipeline:
             canvas_size=64,
         )
 
-        recon_mask = (recon_img > 30).astype(np.uint8) * 255
+        # Clean stroke mask (isolates strokes at value 255 from dot grid at value 128)
+        recon_mask = (recon_img > 200).astype(np.uint8) * 255
 
         metrics = None
         if compute_fidelity:
@@ -193,9 +256,16 @@ class ReconstructionPipeline:
                 "angle": pred_angle,
                 "grid_size": pred_grid,
                 "motif": motif,
+                "tokens": tokens_decoded,
+                "closest_canonical_rule": best_rule_match[0],
+                "closest_canonical_name": best_rule_match[1],
+                "canonical_similarity": best_rule_match[2],
             },
             grammar_string=grammar_str,
             metrics=metrics,
+            is_syntactically_valid=True,
+            error_message=None,
+            token_confidence=token_conf,
         )
 
     def reconstruct_from_baseline_cnn(
@@ -224,6 +294,11 @@ class ReconstructionPipeline:
         symmetries = ["C1", "C2", "C4", "D1", "D2", "D4"]
         grid_sizes = [3, 5, 7, 9]
 
+        rule_probs = torch.softmax(outputs["rule_id"][0], dim=-1).cpu().numpy().tolist()
+        sym_probs = torch.softmax(outputs["symmetry"][0], dim=-1).cpu().numpy().tolist()
+        depth_probs = torch.softmax(outputs["recursion_depth"][0], dim=-1).cpu().numpy().tolist()
+        grid_probs = torch.softmax(outputs["grid_size"][0], dim=-1).cpu().numpy().tolist()
+
         pred_rule_id = rules[int(outputs["rule_id"].argmax(dim=-1)[0].cpu())]
         pred_sym = symmetries[int(outputs["symmetry"].argmax(dim=-1)[0].cpu())]
         pred_depth = int(outputs["recursion_depth"].argmax(dim=-1)[0].cpu()) + 1  # 1-indexed (1-4)
@@ -248,7 +323,8 @@ class ReconstructionPipeline:
             motif=motif,
             grid_size=pred_grid,
         )
-        recon_mask = (recon_img > 30).astype(np.uint8) * 255
+        # Clean stroke mask (isolates strokes at value 255 from dot grid at value 128)
+        recon_mask = (recon_img > 200).astype(np.uint8) * 255
 
         metrics = None
         if compute_fidelity:
@@ -272,6 +348,10 @@ class ReconstructionPipeline:
                 "angle": pred_angle,
                 "grid_size": pred_grid,
                 "motif": motif,
+                "rule_probabilities": dict(zip(rules, rule_probs)),
+                "symmetry_probabilities": dict(zip(symmetries, sym_probs)),
+                "depth_probabilities": dict(zip([1, 2, 3, 4], depth_probs)),
+                "grid_probabilities": dict(zip(grid_sizes, grid_probs)),
             },
             grammar_string=self.tokenizer.rule_to_grammar_string(rule),
             metrics=metrics,

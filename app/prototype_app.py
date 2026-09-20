@@ -1,8 +1,12 @@
-"""KOLAM-R Research Prototype Demonstration Application.
+"""KOLAM-R Research Demonstration Application.
 
-Inverse Learning of Generative Grammar for Structured Kolam Patterns.
-Controlled Prototype Demonstration for Faculty Review:
-Canonical L-System Grammar -> Forward Generation -> Grammar Recovery -> Parametric Synthesis -> Homology Validation.
+Neural Inverse Program Synthesis and Generative Grammar Recovery for Structured Kolam Patterns.
+End-to-End Live Pipeline:
+Input Raster Image -> Autoregressive Vision-to-Grammar Synthesizer (Stage 4)
+                   -> Analysis-by-Synthesis Turtle Execution (Stage 5)
+                   -> Topological Invariant Verification (Stage 6)
+                   -> Continuous B-Spline Parametric Modeling (Stage 7)
+                   -> Baseline Multi-Task Parameter CNN (Stage 3 Ablation)
 """
 
 from __future__ import annotations
@@ -13,7 +17,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# Ensure project root is in sys.path when running on Streamlit Cloud
+# Ensure Kolam project root is in sys.path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
@@ -21,23 +25,32 @@ if str(ROOT_DIR) not in sys.path:
 import numpy as np
 from PIL import Image
 import streamlit as st
+import torch
 
-# Strictly import ONLY from Stage 1 and Stage 2 modules
 from kolam_r.generator import KolamGenerator
 from kolam_r.lsystem.engine import LSystemEngine
-from kolam_r.lsystem.rules import ProductionRule, get_rule, list_rules
+from kolam_r.lsystem.rules import ProductionRule, get_rule, list_rules, RULE_REGISTRY, RULES_BY_ID
 from kolam_r.schema import KolamParams
+from kolam_r.topology.betti import compute_graph_betti_numbers, extract_all_topological_invariants
 from kolam_r.topology.graph_extractor import extract_skeleton_graph
 from kolam_r.topology.skeleton import skeletonize_zhang_suen
 from kolam_r.turtle.interpreter import TurtleInterpreter
 from kolam_r.curvefit.fit_curves import fit_skeleton_graph_curves
 from kolam_r.curvefit.rasterize_curves import rasterize_curves
+from kolam_r.reconstruction.pipeline import ReconstructionPipeline, ReconstructionResult
+from kolam_r.reconstruction.metrics import (
+    compute_reconstruction_metrics,
+    compute_ssim,
+    compute_psnr,
+    compute_iou,
+    compute_ncc,
+)
 
 # -----------------------------------------------------------------------------
 # 1. Page Configuration & Custom Academic Dark Theme
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="KOLAM-R | Controlled Prototype Demo",
+    page_title="KOLAM-R | Neural Inverse Program Synthesis",
     page_icon="💠",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -59,7 +72,7 @@ st.markdown(
         padding-bottom: 14px;
         margin-bottom: 20px;
     }
-    .badge-prototype {
+    .badge-primary {
         background-color: #1e3a8a;
         color: #93c5fd;
         border: 1px solid #3b82f6;
@@ -70,7 +83,7 @@ st.markdown(
         display: inline-block;
         margin-bottom: 8px;
     }
-    .badge-controlled {
+    .badge-live {
         background-color: #064e3b;
         color: #6ee7b7;
         border: 1px solid #059669;
@@ -82,15 +95,15 @@ st.markdown(
         margin-bottom: 8px;
         margin-left: 8px;
     }
-    .badge-disclosure {
-        background-color: #1e293b;
-        color: #cbd5e1;
-        border: 1px solid #334155;
-        padding: 10px 14px;
+    .scope-box {
+        background-color: #0f172a;
+        border-left: 4px solid #38bdf8;
+        padding: 14px 18px;
         border-radius: 6px;
-        font-size: 0.86rem;
-        margin-top: 10px;
-        margin-bottom: 14px;
+        margin-bottom: 20px;
+        font-size: 0.88rem;
+        color: #cbd5e1;
+        line-height: 1.6;
     }
     .card {
         background-color: #131d31 !important;
@@ -103,18 +116,17 @@ st.markdown(
     .card strong, .card td, .card li, .card span {
         color: #f8fafc !important;
     }
-    .rule-card {
-        background-color: #131d31 !important;
-        color: #f8fafc !important;
-        border: 1px solid #1e293b !important;
-        border-left: 4px solid #38bdf8 !important;
+    .grammar-card {
+        background-color: #090d16 !important;
+        color: #38bdf8 !important;
+        border: 1px solid #1e3a8a !important;
+        border-left: 5px solid #38bdf8 !important;
         padding: 16px;
-        border-radius: 6px;
-        font-family: 'Courier New', Courier, monospace;
-        margin: 10px 0;
-    }
-    .rule-card strong, .rule-card code, .rule-card span {
-        color: #f8fafc !important;
+        border-radius: 8px;
+        font-family: 'Consolas', 'Courier New', Courier, monospace;
+        font-size: 1.05rem;
+        margin: 12px 0;
+        letter-spacing: 0.02em;
     }
     .metric-box {
         text-align: center;
@@ -133,44 +145,63 @@ st.markdown(
         text-transform: uppercase;
         font-weight: 600;
     }
-    .pipeline-step {
-        background-color: #131d31 !important;
-        border: 1px solid #334155 !important;
-        border-radius: 6px;
-        padding: 10px 12px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: #38bdf8 !important;
-        text-align: center;
+    .token-badge {
+        display: inline-block;
+        background-color: #1e293b;
+        color: #f1f5f9;
+        border: 1px solid #334155;
+        border-radius: 4px;
+        padding: 2px 6px;
+        margin: 2px 3px;
+        font-family: monospace;
+        font-size: 0.82rem;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+# -----------------------------------------------------------------------------
+# 2. Pipeline Resource Loader (Cached Once)
+# -----------------------------------------------------------------------------
+@st.cache_resource(show_spinner="Loading trained Stage 4 & Stage 3 neural checkpoints...")
+def load_reconstruction_pipeline() -> ReconstructionPipeline:
+    """Load neural models and synthesis pipeline into cached resource."""
+    grammar_pt = ROOT_DIR / "checkpoints" / "best_grammar_model.pt"
+    baseline_pt = ROOT_DIR / "checkpoints" / "best_val_model.pt"
+    return ReconstructionPipeline(
+        grammar_model_path=grammar_pt if grammar_pt.exists() else None,
+        baseline_model_path=baseline_pt if baseline_pt.exists() else None,
+        device="cpu",
+    )
 
 # -----------------------------------------------------------------------------
-# 2. Image Normalization & Real Mathematical Metric Calculations
+# 3. Image Preprocessing & Standardization Utilities
 # -----------------------------------------------------------------------------
-def preprocess_image(pil_img: Image.Image, target_size: int = 256) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Convert input image to standardized format: Grayscale, Binary Mask, Zhang-Suen Skeleton."""
-    gray_full = pil_img.convert("L")
-    arr = np.array(gray_full, dtype=np.float32)
+def preprocess_input_image(pil_img: Image.Image) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Convert input image to standardized representations:
+    1. gray_256: 256x256 display image
+    2. gray_64: 64x64 model input image
+    3. stroke_mask_256: binary mask excluding background and dot grid
+    """
+    gray = pil_img.convert("L")
+    arr = np.array(gray, dtype=np.float32)
 
-    # Detect polarity: Kolam is white foreground stroke on dark floor/background
+    # Invert if dark strokes on light background (Kolam canonical is white strokes on dark floor)
     border_pixels = np.concatenate([arr[0, :], arr[-1, :], arr[:, 0], arr[:, -1]])
     if np.median(border_pixels) > 120:
         arr = 255.0 - arr
 
-    # Min-max auto contrast
+    # Contrast normalization
     p_low, p_high = np.percentile(arr, (1, 99))
     if p_high > p_low:
         arr = np.clip((arr - p_low) / (p_high - p_low) * 255.0, 0, 255)
 
     arr_u8 = arr.astype(np.uint8)
-    thresh_initial = max(30, int(np.mean(arr_u8) + 0.3 * np.std(arr_u8)))
-    coords = np.argwhere(arr_u8 > thresh_initial)
 
+    # Square center-crop bounding box if foreground present
+    thresh = max(30, int(np.mean(arr_u8) + 0.3 * np.std(arr_u8)))
+    coords = np.argwhere(arr_u8 > thresh)
     if coords.size > 0:
         y0, x0 = coords.min(axis=0)
         y1, x1 = coords.max(axis=0) + 1
@@ -179,684 +210,502 @@ def preprocess_image(pil_img: Image.Image, target_size: int = 256) -> tuple[np.n
         max_dim = max(h, w)
         pad_y = (max_dim - h) // 2
         pad_x = (max_dim - w) // 2
-        square_img = np.pad(
+        square = np.pad(
             cropped,
             ((pad_y, max_dim - h - pad_y), (pad_x, max_dim - w - pad_x)),
             mode="constant",
             constant_values=0,
         )
-        gray_pil = Image.fromarray(square_img).resize((target_size, target_size), Image.Resampling.BILINEAR)
+        gray_256_pil = Image.fromarray(square).resize((256, 256), Image.Resampling.BILINEAR)
+        gray_64_pil = Image.fromarray(square).resize((64, 64), Image.Resampling.BILINEAR)
     else:
-        gray_pil = Image.fromarray(arr_u8).resize((target_size, target_size), Image.Resampling.BILINEAR)
+        gray_256_pil = Image.fromarray(arr_u8).resize((256, 256), Image.Resampling.BILINEAR)
+        gray_64_pil = Image.fromarray(arr_u8).resize((64, 64), Image.Resampling.BILINEAR)
 
-    gray_arr = np.array(gray_pil, dtype=np.uint8)
-    thresh_final = max(30, int(np.mean(gray_arr) + 0.25 * np.std(gray_arr)))
-    binary_arr = (gray_arr > thresh_final).astype(np.uint8) * 255
+    gray_256 = np.array(gray_256_pil, dtype=np.uint8)
+    gray_64 = np.array(gray_64_pil, dtype=np.uint8)
 
-    # Medial skeletonization
-    skel_arr = skeletonize_zhang_suen(binary_arr > 0) * 255
+    # Clean stroke mask (threshold > 200 isolates 255 stroke from 128 dot grid)
+    stroke_mask_256 = (gray_256 > 200).astype(np.uint8) * 255
+    if np.sum(stroke_mask_256) < 100:  # Fallback for faint non-dot inputs
+        stroke_mask_256 = (gray_256 > 30).astype(np.uint8) * 255
 
-    return gray_arr, binary_arr, skel_arr
-
-
-def compute_ssim(img1: np.ndarray, img2: np.ndarray) -> float:
-    """Compute structural similarity index on 2D uint8 arrays."""
-    x = img1.astype(np.float64) / 255.0
-    y = img2.astype(np.float64) / 255.0
-
-    mu_x = np.mean(x)
-    mu_y = np.mean(y)
-    sigma_x2 = np.var(x)
-    sigma_y2 = np.var(y)
-    sigma_xy = np.mean((x - mu_x) * (y - mu_y))
-
-    c1 = (0.01) ** 2
-    c2 = (0.03) ** 2
-
-    ssim = ((2 * mu_x * mu_y + c1) * (2 * sigma_xy + c2)) / (
-        (mu_x**2 + mu_y**2 + c1) * (sigma_x2 + sigma_y2 + c2)
-    )
-    return float(np.clip(ssim, 0.0, 1.0))
-
-
-def compute_iou(img1: np.ndarray, img2: np.ndarray) -> float:
-    """Compute Intersection-over-Union between two binary masks."""
-    b1 = img1 > 0
-    b2 = img2 > 0
-    intersection = np.logical_and(b1, b2).sum()
-    union = np.logical_or(b1, b2).sum()
-    if union == 0:
-        return 1.0 if intersection == 0 else 0.0
-    return float(intersection / union)
-
-
-def compute_ncc(img1: np.ndarray, img2: np.ndarray) -> float:
-    """Compute Normalized Cross-Correlation."""
-    x = img1.astype(np.float64)
-    y = img2.astype(np.float64)
-    x_norm = x - np.mean(x)
-    y_norm = y - np.mean(y)
-    denom = np.sqrt(np.sum(x_norm**2) * np.sum(y_norm**2))
-    if denom == 0:
-        return 0.0
-    return float(np.sum(x_norm * y_norm) / denom)
-
-
-def compute_betti(binary_img: np.ndarray) -> tuple[int, int]:
-    """Compute stroke graph Betti numbers (beta_0: connected components, beta_1: independent cycles)."""
-    skel = skeletonize_zhang_suen(binary_img > 0)
-    graph = extract_skeleton_graph(skel)
-    b0, b1 = graph.compute_betti_numbers()
-    return b0, b1
-
+    return gray_256, gray_64, stroke_mask_256
 
 # -----------------------------------------------------------------------------
-# 3. Canonical Generator Utilities (Stage 1 Engine)
-# -----------------------------------------------------------------------------
-@st.cache_data
-def generate_canonical_sample(
-    rule_id: str,
-    depth: int,
-    symmetry: str = "C1",
-    grid_size: int = 5,
-    angle: float | None = None,
-    motif: str = "M1",
-) -> tuple[KolamParams, np.ndarray, np.ndarray, str, int, int]:
-    """Generate canonical Stage 1 sample with exact diagnostic tracing."""
-    generator = KolamGenerator()
-    engine = LSystemEngine()
-    turtle = TurtleInterpreter()
-    rule = get_rule(rule_id)
-
-    target_angle = rule.default_angle if angle is None else angle
-    params = KolamParams(
-        production_rule_id=rule_id,
-        recursion_depth=depth,
-        symmetry=symmetry,
-        angle=target_angle,
-        grid_size=grid_size,
-        motif=motif,
-        step_length=1.0,
-        dot_spacing=1.0,
-        random_seed=42,
-    )
-
-    # 1. Expand L-system
-    expanded_str = engine.expand(rule.axiom, rule.productions, depth)
-
-    # 2. Interpret turtle
-    turtle_res = turtle.interpret(expanded_str, angle=target_angle, step_length=1.0)
-    num_segments = len(turtle_res.segments)
-
-    # 3. Full generator render
-    result = generator.generate(params)
-    img_64 = result.image_64
-    img_256 = result.image_256
-
-    fg_pixels = int(np.sum(img_256 > 30))
-
-    return params, img_64, img_256, expanded_str, num_segments, fg_pixels
-
-
-# -----------------------------------------------------------------------------
-# 4. Header & Scientific Context
+# 4. Header & Scientific Scope Statement
 # -----------------------------------------------------------------------------
 st.markdown('<div class="research-header">', unsafe_allow_html=True)
 st.markdown(
-    '<span class="badge-prototype">Research Prototype — Grammar-Recovery Model Under Development</span>'
-    '<span class="badge-controlled">Controlled Synthetic Demonstration — Ground-Truth Grammar Known</span>',
+    '<span class="badge-primary">KOLAM-R Full Production System</span>'
+    '<span class="badge-live">Live Neural Inference (Stages 3–7 Active)</span>',
     unsafe_allow_html=True,
 )
 st.title("KOLAM-R")
-st.subheader("Inverse Learning of Generative Grammar for Structured Kolam Patterns")
-st.write(
-    "Demonstrating the full neuro-symbolic pipeline: Forward Generation &rarr; Mathematical Grammar Recovery &rarr; Parametric Turtle Reconstruction &rarr; Topological Homology Validation."
-)
+st.subheader("Neural Inverse Program Synthesis of Generative L-System Grammars for Kolam Patterns")
 st.markdown('</div>', unsafe_allow_html=True)
 
+# Permanent Scope Statement (Non-Classification Framing)
+st.markdown(
+    """
+    <div class="scope-box">
+        <strong>📌 Mathematical Scope & Model Generalization Boundaries:</strong><br>
+        KOLAM-R performs <em>program synthesis</em>: given an input visual pattern, the trained Vision-to-Grammar
+        Transformer (Stage 4) autoregressively generates symbolic L-system grammar rules
+        (<code>AXIOM: &omega; ; RULES: &alpha; &rarr; &beta;</code>) and continuous turtle geometry parameters
+        token-by-token. <strong>It does not perform pattern classification into a pre-registered catalog.</strong>
+        Canonical rule identifiers (e.g. R01–R06) are provided strictly as academic reference aids to compare
+        synthesized programs with classical literature.
+        <br><br>
+        <strong>Empirical Generalization Boundary:</strong> In testing so far, the model has not been observed to generate a grammar structurally distinct from its 6 training templates — true open-vocabulary generalization is unverified. When presented with unseen or out-of-registry geometry, the autoregressive decoder reproduces whichever known canonical template (R01–R06) most closely matches its visual feature embeddings. This finding is consistent with the model's training dataset, which contained parameter and geometric variations of only 6 fixed templates — never a genuinely different grammar structure. A model trained on a closed set of templates has no empirical basis to compose novel ones, confirming this behavior reflects a training-data ceiling rather than necessarily an architectural limitation. Testing genuine open-ended generalization would require training on a broader grammar space, which is a natural next step, not yet attempted.
+        <br><br>
+        <strong>Confidence vs. Correctness:</strong> Reported token confidence reflects the decoder's internal conditional sequence certainty, <em>not</em> verified ground-truth correctness. Empirical evaluation demonstrates that token confidence remains clustered in a narrow band (~94%–97%) regardless of whether the output is correct or verifiably mismatched with ground truth.
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 # -----------------------------------------------------------------------------
-# 5. Sidebar: Stage 2 Training Database Preview & System Status
+# 5. Sidebar: Dataset Statistics & Model Inspection
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    st.header("🗄️ Training Database Preview")
-    st.caption("Live statistics read directly from Stage 2 dataset files.")
+    st.header("🔬 System & Model Diagnostics")
+    st.caption("Inspecting live neural checkpoints and Stage 1-2 training data.")
 
-    stats_file = Path("data/stats/dataset_statistics.json")
+    stats_file = ROOT_DIR / "data" / "stats" / "dataset_statistics.json"
     if stats_file.exists():
         with open(stats_file, "r") as f:
             stats = json.load(f)
-
-        st.metric("Total Generated Samples", f"{stats.get('total_images', 0):,}")
-        st.metric("Unique Mathematical Structures", f"{stats.get('splits', {}).get('train', {}).get('num_unique_structures', 0) * 4:,}")
-        st.metric("Registered Rule Families", len(stats.get("parameter_distributions", {}).get("production_rule_id", {})))
-
-        with st.expander("📊 Dataset Splits Breakdown", expanded=False):
-            splits = stats.get("splits", {})
-            for split_name, split_data in splits.items():
-                st.write(f"**{split_name}**: {split_data.get('count', 0)} images ({split_data.get('percentage', 0)}%)")
-
-        with st.expander("📜 Live Sample Metadata (`data/raw/`)", expanded=False):
-            sample_meta_path = Path("data/raw/metadata/K000001.json")
-            if sample_meta_path.exists():
-                with open(sample_meta_path, "r") as mf:
-                    st.json(json.load(mf))
-    else:
-        st.warning("⚠️ Stage 2 dataset statistics file not found.")
+        st.metric("Total Generated Dataset", f"{stats.get('total_images', 0):,} samples")
+        st.metric("Canonical Rule Library", len(stats.get("parameter_distributions", {}).get("production_rule_id", {})))
+    
+    grammar_ckpt = ROOT_DIR / "checkpoints" / "best_grammar_model.pt"
+    val_ckpt = ROOT_DIR / "checkpoints" / "best_val_model.pt"
 
     st.markdown("---")
-    st.markdown("### 🔬 Prototype vs. Final System")
+    st.markdown("### 🧠 Active Checkpoints")
+    if grammar_ckpt.exists():
+        st.success(f"✓ **Stage 4:** `best_grammar_model.pt` ({grammar_ckpt.stat().st_size / (1024*1024):.1f} MB)")
+    else:
+        st.error("✗ Stage 4 checkpoint missing!")
+
+    if val_ckpt.exists():
+        st.success(f"✓ **Stage 3:** `best_val_model.pt` ({val_ckpt.stat().st_size / (1024*1024):.1f} MB)")
+    else:
+        st.error("✗ Stage 3 checkpoint missing!")
+
+    st.markdown("---")
+    st.markdown("### 📐 Pipeline Stages")
     st.markdown(
         """
-        **CONTROLLED PROTOTYPE DEMO**
-        - ✓ Parametric L-system generator
-        - ✓ Canonical mathematical rule library
-        - ✓ Controlled ground-truth verification
-        - ✓ Turtle stroke vector synthesis
-        - ✓ Topological homology validation
-
-        **RESEARCH PIPELINE UNDER DEVELOPMENT**
-        - ○ Multi-task Vision Transformer (Stage 4)
-        - ○ Sequence-to-sequence grammar inference
-        - ○ Open-vocabulary rule discovery for real photos
-        - ○ Generalization to unseen recursion depths
+        - **Stage 1:** Parametric L-System Generator
+        - **Stage 2:** Dual Topological Representations
+        - **Stage 3:** Baseline Multi-Task CNN (Ablation)
+        - **Stage 4:** Autoregressive Vision-to-Grammar Transformer
+        - **Stage 5:** Turtle Analysis-by-Synthesis Reconstructor
+        - **Stage 6:** Dual-Complex Homology Invariant Validator
+        - **Stage 7:** Continuous B-Spline Parametric Modeling ($K = |E|$)
         """
     )
 
-
 # -----------------------------------------------------------------------------
-# 6. Landing & Input Selection Section
+# 6. Input Selection Controls
 # -----------------------------------------------------------------------------
-col_demo_btn, col_upload = st.columns([1.2, 1])
+pipeline = load_reconstruction_pipeline()
+generator = KolamGenerator()
 
-with col_demo_btn:
-    st.markdown("### ⚡ Primary Demonstration")
-    btn_r01_demo = st.button(
-        "⚡ Activate",
-        type="primary",
-        use_container_width=True,
-        help="Runs the canonical controlled end-to-end demonstration with ground-truth Krishna Anklets grammar (d=2).",
-    )
+st.markdown("### 📥 Select or Upload an Input Pattern")
 
-with col_upload:
-    st.markdown("### 📤 Experimental External Upload")
+col_mode1, col_mode2 = st.columns([1.5, 1])
+
+with col_mode1:
+    st.markdown("##### ⚡ Benchmark Library Patterns (Ground-Truth Known)")
+    col_b1, col_b2, col_b3, col_b4, col_b5, col_b6 = st.columns(6)
+    btn_r01 = col_b1.button("Krishna Anklets\n(R01, d=2)", use_container_width=True)
+    btn_r02 = col_b2.button("Snake Kolam\n(R02, d=2)", use_container_width=True)
+    btn_r03 = col_b3.button("Kolam Tile\n(R03, d=2)", use_container_width=True)
+    btn_r04 = col_b4.button("Mango Leaf\n(R04, d=2)", use_container_width=True)
+    btn_r05 = col_b5.button("Hilbert Meander\n(R05, d=2)", use_container_width=True)
+    btn_r06 = col_b6.button("Branching Floral\n(R06, d=2)", use_container_width=True)
+
+with col_mode2:
+    st.markdown("##### 📤 External Image Input")
     uploaded_file = st.file_uploader(
-        "Upload a Kolam Image (PNG, JPG, JPEG)",
+        "Upload any PNG or JPG Kolam image:",
         type=["png", "jpg", "jpeg"],
-        help="Upload an arbitrary Kolam image to test against the registered grammar catalog.",
+        help="Upload an arbitrary or real-world Kolam image for program synthesis.",
     )
 
-st.markdown("### 🎯 Or Select a Canonical Benchmark Pattern")
-col_b1, col_b2, col_b3, col_b4, col_b5, col_b6 = st.columns(6)
-btn_r01 = col_b1.button("Krishna Anklets\n(R01, d=2)", use_container_width=True)
-btn_r02 = col_b2.button("Snake Kolam\n(R02, d=2)", use_container_width=True)
-btn_r03 = col_b3.button("Kolam Tile\n(R03, d=2)", use_container_width=True)
-btn_r04 = col_b4.button("Mango Leaf\n(R04, d=2)", use_container_width=True)
-btn_r05 = col_b5.button("Hilbert Meander\n(R05, d=2)", use_container_width=True)
-btn_r06 = col_b6.button("Branching Floral\n(R06, d=2)", use_container_width=True)
-
-
-# -----------------------------------------------------------------------------
-# 7. Canonical Ground-Truth Configurations (Single Source of Truth)
-# -----------------------------------------------------------------------------
+# Canonical benchmark configurations
 CANONICAL_BENCHMARKS = {
-    "R01": KolamParams(
-        production_rule_id="R01",
-        recursion_depth=2,
-        symmetry="D4",
-        angle=45.0,
-        grid_size=5,
-        motif="M1",
-        step_length=1.0,
-        dot_spacing=1.0,
-        random_seed=42,
-    ),
-    "R02": KolamParams(
-        production_rule_id="R02",
-        recursion_depth=2,
-        symmetry="D2",
-        angle=90.0,
-        grid_size=5,
-        motif="M1",
-        step_length=1.0,
-        dot_spacing=1.0,
-        random_seed=42,
-    ),
-    "R03": KolamParams(
-        production_rule_id="R03",
-        recursion_depth=2,
-        symmetry="D4",
-        angle=45.0,
-        grid_size=5,
-        motif="M1",
-        step_length=1.0,
-        dot_spacing=1.0,
-        random_seed=42,
-    ),
-    "R04": KolamParams(
-        production_rule_id="R04",
-        recursion_depth=2,
-        symmetry="D2",
-        angle=45.0,
-        grid_size=5,
-        motif="M1",
-        step_length=1.0,
-        dot_spacing=1.0,
-        random_seed=42,
-    ),
-    "R05": KolamParams(
-        production_rule_id="R05",
-        recursion_depth=2,
-        symmetry="C4",
-        angle=90.0,
-        grid_size=5,
-        motif="M1",
-        step_length=1.0,
-        dot_spacing=1.0,
-        random_seed=42,
-    ),
-    "R06": KolamParams(
-        production_rule_id="R06",
-        recursion_depth=2,
-        symmetry="D4",
-        angle=25.0,
-        grid_size=5,
-        motif="M1",
-        step_length=1.0,
-        dot_spacing=1.0,
-        random_seed=42,
-    ),
+    "R01": KolamParams(production_rule_id="R01", recursion_depth=2, symmetry="D4", angle=45.0, grid_size=5, motif="M1"),
+    "R02": KolamParams(production_rule_id="R02", recursion_depth=2, symmetry="D2", angle=90.0, grid_size=5, motif="M1"),
+    "R03": KolamParams(production_rule_id="R03", recursion_depth=2, symmetry="D4", angle=45.0, grid_size=5, motif="M1"),
+    "R04": KolamParams(production_rule_id="R04", recursion_depth=2, symmetry="D2", angle=45.0, grid_size=5, motif="M1"),
+    "R05": KolamParams(production_rule_id="R05", recursion_depth=2, symmetry="C4", angle=90.0, grid_size=5, motif="M1"),
+    "R06": KolamParams(production_rule_id="R06", recursion_depth=2, symmetry="D4", angle=25.0, grid_size=5, motif="M1"),
 }
 
-# Resolve Active Demonstration Mode
-active_mode = "CONTROLLED_DEMO"
-selected_rule_key = "R03"
-
+# Determine active image source
+is_uploaded_source = False
 if uploaded_file is not None:
-    active_mode = "EXPERIMENTAL_UPLOAD"
-elif btn_r01_demo or btn_r03:
-    selected_rule_key = "R03"
+    try:
+        pil_input = Image.open(uploaded_file)
+        # Verify image integrity
+        pil_input.verify()
+        uploaded_file.seek(0)
+        pil_input = Image.open(uploaded_file)
+        active_label = f"Uploaded Image: {uploaded_file.name}"
+        ground_truth_rule = None
+        is_uploaded_source = True
+    except Exception as e:
+        st.error(f"⚠️ Unreadable or corrupted image file: '{uploaded_file.name}'. Error details: {e}. Falling back to default canonical benchmark.")
+        active_label = "Canonical Benchmark: Kolam Tile (R03, d=2) [Corrupted Upload Fallback]"
+        res_gen = generator.generate(CANONICAL_BENCHMARKS["R03"])
+        pil_input = Image.fromarray(res_gen.image_256)
+        ground_truth_rule = "R03"
 elif btn_r01:
-    selected_rule_key = "R01"
+    active_label = "Canonical Benchmark: Krishna Anklets (R01, d=2)"
+    res_gen = generator.generate(CANONICAL_BENCHMARKS["R01"])
+    pil_input = Image.fromarray(res_gen.image_256)
+    ground_truth_rule = "R01"
 elif btn_r02:
-    selected_rule_key = "R02"
+    active_label = "Canonical Benchmark: Snake Kolam (R02, d=2)"
+    res_gen = generator.generate(CANONICAL_BENCHMARKS["R02"])
+    pil_input = Image.fromarray(res_gen.image_256)
+    ground_truth_rule = "R02"
 elif btn_r04:
-    selected_rule_key = "R04"
+    active_label = "Canonical Benchmark: Mango Leaf (R04, d=2)"
+    res_gen = generator.generate(CANONICAL_BENCHMARKS["R04"])
+    pil_input = Image.fromarray(res_gen.image_256)
+    ground_truth_rule = "R04"
 elif btn_r05:
-    selected_rule_key = "R05"
+    active_label = "Canonical Benchmark: Hilbert Meander (R05, d=2)"
+    res_gen = generator.generate(CANONICAL_BENCHMARKS["R05"])
+    pil_input = Image.fromarray(res_gen.image_256)
+    ground_truth_rule = "R05"
 elif btn_r06:
-    selected_rule_key = "R06"
+    active_label = "Canonical Benchmark: Branching Floral (R06, d=2)"
+    res_gen = generator.generate(CANONICAL_BENCHMARKS["R06"])
+    pil_input = Image.fromarray(res_gen.image_256)
+    ground_truth_rule = "R06"
 else:
-    # Default: Canonical R03 Demo (Kolam Tile)
-    selected_rule_key = "R03"
+    # Default: Canonical R03 (Kolam Tile)
+    active_label = "Canonical Benchmark: Kolam Tile (R03, d=2)"
+    res_gen = generator.generate(CANONICAL_BENCHMARKS["R03"])
+    pil_input = Image.fromarray(res_gen.image_256)
+    ground_truth_rule = "R03"
 
-generator = KolamGenerator()
-engine = LSystemEngine()
-turtle = TurtleInterpreter()
+# Preprocess image
+gray_256, gray_64, stroke_mask_256 = preprocess_input_image(pil_input)
 
-if active_mode == "CONTROLLED_DEMO":
-    # 1. Exact canonical ground-truth parameter record
-    canonical_params = CANONICAL_BENCHMARKS[selected_rule_key]
-    rule_obj = get_rule(canonical_params.production_rule_id)
+# Check for blank / empty upload
+if np.std(gray_256) < 1.0:
+    st.warning("⚠️ Notice: The active input image is completely uniform or blank. No pattern strokes were detected; the models will process the blank uniform canvas.")
 
-    # 2. Forward generate canonical input from Stage-1 generator
-    input_result = generator.generate(canonical_params)
-    ground_truth_meta = input_result.metadata.params
-
-    # 3. Reconstruct using the EXACT SAME metadata parameters from the input record
-    recon_params = KolamParams(
-        production_rule_id=ground_truth_meta.production_rule_id,
-        recursion_depth=ground_truth_meta.recursion_depth,
-        symmetry=ground_truth_meta.symmetry,
-        angle=ground_truth_meta.angle,
-        grid_size=ground_truth_meta.grid_size,
-        motif=ground_truth_meta.motif,
-        step_length=ground_truth_meta.step_length,
-        dot_spacing=ground_truth_meta.dot_spacing,
-        random_seed=ground_truth_meta.random_seed,
-    )
-    recon_result = generator.generate(recon_params)
-
-    input_img_raw = input_result.image_256
-    recon_img_raw = recon_result.image_256
-    active_source_label = f"Canonical Benchmark: {rule_obj.rule_id} — {rule_obj.name} (d={canonical_params.recursion_depth}, {canonical_params.symmetry})"
-
-    # Compiler diagnostics
-    exp_str = engine.expand(rule_obj.axiom, rule_obj.productions, canonical_params.recursion_depth)
-    t_res = turtle.interpret(exp_str, angle=canonical_params.angle, step_length=canonical_params.step_length)
-    num_seg = len(t_res.segments)
-    fg_px = int(np.sum(input_img_raw > 30))
-else:
-    # Experimental upload mode
-    uploaded_pil = Image.open(uploaded_file)
-    input_img_raw = np.array(uploaded_pil.convert("L").resize((256, 256), Image.Resampling.BILINEAR))
-    active_source_label = f"Experimental External Input: {uploaded_file.name}"
-    
-    # Preprocess uploaded input
-    up_gray, up_bin, _ = preprocess_image(uploaded_pil, target_size=256)
-    
-    # Match against canonical benchmarks to find closest registered rule
-    best_rule_key = "R01"
-    best_match_score = -1.0
-    for r_key, cand_params in CANONICAL_BENCHMARKS.items():
-        cand_res = generator.generate(cand_params)
-        cand_gray, _, _ = preprocess_image(Image.fromarray(cand_res.image_256), target_size=256)
-        cand_ncc = max(0.0, compute_ncc(up_gray, cand_gray))
-        cand_ssim = compute_ssim(up_gray, cand_gray)
-        score = 0.6 * cand_ncc + 0.4 * cand_ssim
-        if score > best_match_score:
-            best_match_score = score
-            best_rule_key = r_key
-            
-    canonical_params = CANONICAL_BENCHMARKS[best_rule_key]
-    rule_obj = get_rule(canonical_params.production_rule_id)
-    ground_truth_meta = canonical_params
-    recon_params = canonical_params
-    recon_result = generator.generate(recon_params)
-    recon_img_raw = recon_result.image_256
-    exp_str = engine.expand(rule_obj.axiom, rule_obj.productions, canonical_params.recursion_depth)
-    t_res = turtle.interpret(exp_str, angle=canonical_params.angle, step_length=canonical_params.step_length)
-    num_seg = len(t_res.segments)
-    fg_px = int(np.sum(recon_img_raw > 30))
-
-# Standardize input and reconstructed images
-input_gray, input_binary, input_skel = preprocess_image(Image.fromarray(input_img_raw), target_size=256)
-recon_gray, recon_binary, recon_skel = preprocess_image(Image.fromarray(recon_img_raw), target_size=256)
-
+# Quick sample selector expander for convenience
+with st.expander("📁 Or Load Pre-Packaged Test Images (`app/safe_upload_samples/` & `data/raw/`)", expanded=False):
+    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+    if col_s1.button("Sample R01 Photo", use_container_width=True):
+        p = ROOT_DIR / "app" / "safe_upload_samples" / "sample_r01_krishna_anklets.jpg"
+        if p.exists():
+            pil_input = Image.open(p)
+            gray_256, gray_64, stroke_mask_256 = preprocess_input_image(pil_input)
+            active_label = "External Sample: sample_r01_krishna_anklets.jpg"
+    if col_s2.button("Sample R02 Photo", use_container_width=True):
+        p = ROOT_DIR / "app" / "safe_upload_samples" / "sample_r02_snake_kolam.jpg"
+        if p.exists():
+            pil_input = Image.open(p)
+            gray_256, gray_64, stroke_mask_256 = preprocess_input_image(pil_input)
+            active_label = "External Sample: sample_r02_snake_kolam.jpg"
+    if col_s3.button("Sample R03 Photo", use_container_width=True):
+        p = ROOT_DIR / "app" / "safe_upload_samples" / "sample_r03_kolam_tile.jpg"
+        if p.exists():
+            pil_input = Image.open(p)
+            gray_256, gray_64, stroke_mask_256 = preprocess_input_image(pil_input)
+            active_label = "External Sample: sample_r03_kolam_tile.jpg"
+    if col_s4.button("Raw Dataset K000013", use_container_width=True):
+        p = ROOT_DIR / "data" / "raw" / "images" / "K000013.png"
+        if p.exists():
+            pil_input = Image.open(p)
+            gray_256, gray_64, stroke_mask_256 = preprocess_input_image(pil_input)
+            active_label = "Raw Dataset: K000013.png"
 
 # -----------------------------------------------------------------------------
-# 8. Execution Pipeline UI
+# 7. Live Neural Inference Execution (Stages 4, 3, 6, 7)
 # -----------------------------------------------------------------------------
+with st.spinner("Executing neural inverse program synthesis and topology extraction..."):
+    # Stage 4: Vision-to-Grammar Transformer
+    res_grammar = pipeline.reconstruct_from_grammar(gray_64, use_discovered_depth=True)
+
+    # Stage 3: Baseline Parameter CNN
+    res_cnn = pipeline.reconstruct_from_baseline_cnn(gray_64)
+
+    # Stage 6: Stroke-only Topology Extraction (threshold=200 excludes 128 dot-grid pixels)
+    b0_orig, b1_orig = compute_graph_betti_numbers(gray_256, threshold=200)
+    b0_grammar, b1_grammar = compute_graph_betti_numbers(res_grammar.image, threshold=200)
+    b0_cnn, b1_cnn = compute_graph_betti_numbers(res_cnn.image, threshold=200)
+
+    # Skeleton images for visual display
+    skel_orig = skeletonize_zhang_suen(stroke_mask_256 > 0) * 255
+    skel_grammar = skeletonize_zhang_suen(res_grammar.mask > 0) * 255
+    skel_cnn = skeletonize_zhang_suen(res_cnn.mask > 0) * 255
+
+    # Stage 7: Continuous Parametric Curve Fitting (K = |E|)
+    stroke_skel_bool = skeletonize_zhang_suen(stroke_mask_256 > 0)
+    stroke_graph = extract_skeleton_graph(stroke_skel_bool)
+    fitted_curves = fit_skeleton_graph_curves(stroke_graph, linearity_threshold=0.5)
+    curve_raster = rasterize_curves(fitted_curves, image_shape=(256, 256), stroke_width=2)
+    curve_skel = skeletonize_zhang_suen(curve_raster > 100)
+    curve_graph = extract_skeleton_graph(curve_skel)
+    b0_curve, b1_curve = curve_graph.compute_betti_numbers()
+
 st.markdown("---")
-st.markdown(f"#### Active Pattern: `{active_source_label}`")
+st.markdown(f"#### Active Input: `{active_label}`")
 
-# Step 1: Preprocessing Expander
-with st.expander("🔍 Image Preprocessing Pipeline (Grayscale, Normalization & Skeletonization)", expanded=False):
-    col_p1, col_p2, col_p3 = st.columns(3)
-    col_p1.image(input_gray, caption="Normalized Input (256x256)", use_container_width=True, clamp=True)
-    col_p2.image(input_binary, caption="Binary Stroke Mask", use_container_width=True, clamp=True)
-    col_p3.image(input_skel, caption="Zhang-Suen Medial Skeleton", use_container_width=True, clamp=True)
+# -----------------------------------------------------------------------------
+# 8. SECTION 1: Preprocessing & Normalized Representations (Stage 2)
+# -----------------------------------------------------------------------------
+with st.expander("🔍 Stage 2: Dual Normalized Representations (Grayscale, Stroke Mask & Skeleton)", expanded=False):
+    col_pr1, col_pr2, col_pr3 = st.columns(3)
+    col_pr1.image(gray_256, caption="Normalized Input (256x256)", use_container_width=True, clamp=True)
+    col_pr2.image(stroke_mask_256, caption="Isolated Stroke Mask (>200 threshold excludes dots)", use_container_width=True, clamp=True)
+    col_pr3.image(skel_orig, caption=f"Zhang-Suen Stroke Skeleton (β₀={b0_orig}, β₁={b1_orig})", use_container_width=True, clamp=True)
 
+# -----------------------------------------------------------------------------
+# 9. SECTION 2: Recovered L-System Generative Grammar (Stage 4 Headline)
+# -----------------------------------------------------------------------------
+st.markdown("### 📐 Stage 4: Recovered Generative Grammar (Primary Synthesized Program)")
 
-# Step 2: Mathematical Grammar & Parameter Representation
-st.markdown("### 📐 Recovered Generative Grammar & Parameters")
-if active_mode == "CONTROLLED_DEMO":
-    st.info("ℹ️ **Controlled Synthetic Demonstration — Ground-Truth Grammar Known:** All reconstruction parameters are taken from the same ground-truth record used to generate the input.")
-else:
-    st.info("ℹ️ **Experimental External Upload:** Matching against registered L-system grammar library.")
+col_g_main, col_g_side = st.columns([1.5, 1])
 
-col_rep_left, col_rep_right = st.columns([1.3, 1])
-
-with col_rep_left:
+with col_g_main:
+    st.markdown("##### Synthesized L-System Grammar String (Autoregressive Decoder Output):")
     st.markdown(
-        f"""
-        <div class="rule-card">
-            <strong>Rule ID:</strong> {rule_obj.rule_id} — {rule_obj.name}<br>
-            <strong>Axiom (&omega;):</strong> <code>{rule_obj.axiom}</code><br>
-            <strong>Production Rules (P):</strong><br>
-        """,
+        f'<div class="grammar-card">{res_grammar.grammar_string}</div>',
         unsafe_allow_html=True,
     )
-    for symbol, replacement in rule_obj.productions.items():
-        st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;$$\\mathbf{{{symbol}}} \\longrightarrow \\text{{{replacement}}}$$")
 
-    st.markdown(
-        f"""
-            <strong>Academic Reference:</strong> <em>{rule_obj.source}</em><br>
-            <strong>Description:</strong> {rule_obj.description}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.caption(
-        f"*{rule_obj.rule_id} uses recursive production rules interpreted through turtle geometry to generate an interwoven continuous-loop Kolam structure.*"
-    )
+    # Status Badges
+    col_stat1, col_stat2, col_stat3 = st.columns(3)
+    with col_stat1:
+        if res_grammar.is_syntactically_valid:
+            st.markdown('<span style="color:#22c55e; font-weight:700; font-size:0.95rem;">✓ Valid L-System AST Syntax</span>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<span style="color:#ef4444; font-weight:700; font-size:0.95rem;">✗ Syntax Error: {res_grammar.error_message}</span>', unsafe_allow_html=True)
 
-with col_rep_right:
+    with col_stat2:
+        conf_val = res_grammar.token_confidence if res_grammar.token_confidence is not None else 0.0
+        st.markdown(f'<span style="color:#38bdf8; font-weight:700; font-size:0.95rem;">Token Confidence: {conf_val*100:.1f}%</span>', unsafe_allow_html=True)
+        st.caption("⚠️ Reflects model probability certainty, not verified ground-truth correctness.")
+
+    with col_stat3:
+        can_rule = res_grammar.parameters.get("closest_canonical_rule", "Unknown")
+        can_name = res_grammar.parameters.get("closest_canonical_name", "Custom")
+        can_sim = res_grammar.parameters.get("canonical_similarity", 0.0)
+        if can_sim == 1.0:
+            st.caption(f"Template: **Verbatim match to {can_rule} ({can_name})** [0 token diffs]")
+        else:
+            st.caption(f"Ref Family: **{can_name} ({can_rule})** [{can_sim*100:.0f}% token overlap]")
+
+    with st.expander(f"🔤 Inspect Generated Token Sequence ({len(res_grammar.parameters.get('tokens', []))} tokens)", expanded=False):
+        tokens = res_grammar.parameters.get("tokens", [])
+        tokens_html = "".join([f'<span class="token-badge">{t}</span>' for t in tokens])
+        st.markdown(tokens_html, unsafe_allow_html=True)
+        st.caption("Decoded step-by-step by the autoregressive cross-attention transformer decoder over the 24-token vocabulary.")
+
+with col_g_side:
     st.markdown(
         f"""
         <div class="card">
-            <h4 style="margin-top:0;">Ground-Truth vs. Reconstruction Parameters</h4>
-            <table style="width:100%; font-size:0.88rem; line-height:1.9;">
-                <tr style="border-bottom:1px solid #334155;"><th>Parameter</th><th>Input</th><th>Reconstruction</th></tr>
-                <tr><td><strong>Rule ID</strong></td><td><code>{canonical_params.production_rule_id}</code></td><td><code>{recon_params.production_rule_id}</code></td></tr>
-                <tr><td><strong>Depth ($d$)</strong></td><td><code>{canonical_params.recursion_depth}</code></td><td><code>{recon_params.recursion_depth}</code></td></tr>
-                <tr><td><strong>Symmetry</strong></td><td><code>{canonical_params.symmetry}</code></td><td><code>{recon_params.symmetry}</code></td></tr>
-                <tr><td><strong>Angle (&theta;)</strong></td><td><code>{canonical_params.angle}&deg;</code></td><td><code>{recon_params.angle}&deg;</code></td></tr>
-                <tr><td><strong>Grid Size</strong></td><td><code>{canonical_params.grid_size} &times; {canonical_params.grid_size}</code></td><td><code>{recon_params.grid_size} &times; {recon_params.grid_size}</code></td></tr>
-                <tr><td><strong>Dot Spacing</strong></td><td><code>{canonical_params.dot_spacing}</code></td><td><code>{recon_params.dot_spacing}</code></td></tr>
-                <tr><td><strong>Connectivity</strong></td><td><code>Single Stroke</code></td><td><code>Single Stroke</code></td></tr>
+            <h5 style="margin-top:0; color:#38bdf8 !important;">Synthesized Geometry Parameters</h5>
+            <table style="width:100%; font-size:0.86rem; line-height:1.9;">
+                <tr><td><strong>Discovered Depth ($d$):</strong></td><td><code>d = {res_grammar.parameters.get('depth')}</code> (Protocol B NCC Search in [1, 4])</td></tr>
+                <tr><td><strong>Symmetry Group:</strong></td><td><code>{res_grammar.parameters.get('symmetry')}</code></td></tr>
+                <tr><td><strong>Turning Angle (&theta;):</strong></td><td><code>{res_grammar.parameters.get('angle', 0.0):.2f}&deg;</code></td></tr>
+                <tr><td><strong>Dot Grid Size:</strong></td><td><code>{res_grammar.parameters.get('grid_size')} &times; {res_grammar.parameters.get('grid_size')}</code></td></tr>
+                <tr><td><strong>Turtle Segments:</strong></td><td><code>{len(res_grammar.segments)}</code> vectors</td></tr>
             </table>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
+# -----------------------------------------------------------------------------
+# 10. SECTION 3: Baseline Multi-Task CNN Comparison (Stage 3 Ablation)
+# -----------------------------------------------------------------------------
+with st.expander("⚖️ Compare with Direct Parameter Baseline CNN (Stage 3 Ablation)", expanded=False):
+    col_c1, col_c2 = st.columns([1, 1.2])
+    with col_c1:
+        st.markdown(
+            f"""
+            <div class="card">
+                <h5 style="margin-top:0;">Baseline CNN Classification</h5>
+                <p style="font-size:0.88rem;">
+                <strong>Top-1 Rule:</strong> <code>{res_cnn.parameters.get('rule_id')}</code><br>
+                <strong>Predicted Depth:</strong> <code>{res_cnn.parameters.get('depth')}</code><br>
+                <strong>Predicted Symmetry:</strong> <code>{res_cnn.parameters.get('symmetry')}</code><br>
+                <strong>Predicted Angle:</strong> <code>{res_cnn.parameters.get('angle', 0.0):.2f}&deg;</code>
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with col_c2:
+        st.markdown("##### Softmax Probabilities Across Canonical Rules:")
+        probs = res_cnn.parameters.get("rule_probabilities", {})
+        for r_id, p_val in probs.items():
+            r_name = RULES_BY_ID[r_id].name
+            st.progress(float(p_val), text=f"{r_id} — {r_name}: {p_val*100:.1f}%")
 
-# Step 3: Generative Process Diagnostic Inspector
-with st.expander("⚙️ View Generative Compiler Diagnostics (L-System Expansion & Turtle Path)", expanded=False):
-    col_d1, col_d2, col_d3 = st.columns(3)
-    col_d1.metric("L-System String Length", f"{len(exp_str):,} chars")
-    col_d2.metric("Turtle Stroke Segments", f"{num_seg:,} lines")
-    col_d3.metric("Rendered Foreground Pixels", f"{fg_px:,} px")
-    st.code(f"Expanded String (first 180 chars):\n{exp_str[:180]}...", language="text")
+# -----------------------------------------------------------------------------
+# 11. SECTION 4: Visual Reconstruction Comparison (Stage 5 Analysis-by-Synthesis)
+# -----------------------------------------------------------------------------
+st.markdown("### 🔄 Visual Reconstruction Comparison (Stage 5)")
 
+# Difference map between input and Stage 4 reconstruction
+diff_map = np.abs(gray_64.astype(np.float32) - res_grammar.image.astype(np.float32)).astype(np.uint8)
 
-# Step 4: Side-by-Side Comparison
-st.markdown("### 🔄 Original Input vs. Reconstructed Kolam")
+col_v1, col_v2, col_v3, col_v4 = st.columns(4)
+with col_v1:
+    st.image(gray_64, caption="Input Target (64x64)", use_container_width=True, clamp=True)
+with col_v2:
+    st.image(res_grammar.image, caption="Stage 4 Grammar Synthesis", use_container_width=True, clamp=True)
+with col_v3:
+    st.image(res_cnn.image, caption=f"Stage 3 CNN Lookup ({res_cnn.parameters.get('rule_id')})", use_container_width=True, clamp=True)
+with col_v4:
+    st.image(diff_map, caption="Absolute Difference Map", use_container_width=True, clamp=True)
 
-col_side_orig, col_side_recon = st.columns(2)
-with col_side_orig:
-    st.markdown("#### ORIGINAL KOLAM (Input)")
-    st.image(input_binary, caption="Standardized Input Binary Pattern (256x256)", use_container_width=True, clamp=True)
+# -----------------------------------------------------------------------------
+# 12. SECTION 5: Quantitative Reconstruction Fidelity Metrics
+# -----------------------------------------------------------------------------
+st.markdown("### 📊 Reconstruction Fidelity Metrics (Live Session Image)")
 
-with col_side_recon:
-    st.markdown("#### RECONSTRUCTED KOLAM (From Recovered Grammar)")
-    st.image(
-        recon_binary,
-        caption=f"Compiled live via L-System Engine (Rule {recon_params.production_rule_id}, d={recon_params.recursion_depth}, {recon_params.symmetry})",
-        use_container_width=True,
-        clamp=True,
-    )
-
-
-# Step 5: Real Non-Fabricated Validation Metrics
-st.markdown("### 📊 Reconstruction Validation & Homology Analysis")
-
-ssim_val = compute_ssim(input_binary, recon_binary)
-iou_val = compute_iou(input_binary, recon_binary)
-ncc_val = compute_ncc(input_binary, recon_binary)
-mean_err = float(np.mean(np.abs(input_binary.astype(float) - recon_binary.astype(float))))
-
-b0_orig, b1_orig = compute_betti(input_binary)
-b0_recon, b1_recon = compute_betti(recon_binary)
-
-is_exact_match = (ssim_val >= 0.90 and iou_val >= 0.85 and b0_orig == b0_recon and b1_orig == b1_recon)
-is_good_match = (ssim_val >= 0.60 and iou_val >= 0.50)
-
-# Softened, honest research framing for out-of-library patterns
-if not is_good_match and active_mode == "EXPERIMENTAL_UPLOAD":
+col_mf1, col_mf2, col_mf3, col_mf4 = st.columns(4)
+with col_mf1:
+    ssim_g = res_grammar.metrics.ssim if res_grammar.metrics else 0.0
+    ssim_c = res_cnn.metrics.ssim if res_cnn.metrics else 0.0
     st.markdown(
-        """
-        <div style="background-color: #1e293b; border-left: 4px solid #64748b; padding: 14px 18px; border-radius: 6px; margin: 14px 0;">
-            <h5 style="color: #94a3b8; margin: 0 0 6px 0;">ℹ️ Structure Outside Registered Grammar Library</h5>
-            <span style="font-size: 0.88rem; color: #cbd5e1; line-height: 1.5; display: block;">
-            This pattern's structure falls outside our current 6-rule registered library. This is an expected, honest limitation of registered-rule matching, not an error — it's exactly the gap the trained Stage 4 image-to-grammar model (in development) is designed to close, since it can recognize open-ended structure rather than only matching a fixed rule set.
-            </span>
-        </div>
-        """,
+        f'<div class="metric-box"><div class="metric-value" style="color:#38bdf8;">{ssim_g:.4f}</div>'
+        f'<div class="metric-label">Structural SSIM (CNN: {ssim_c:.4f})</div></div>',
+        unsafe_allow_html=True,
+    )
+with col_mf2:
+    psnr_g = res_grammar.metrics.psnr if res_grammar.metrics else 0.0
+    psnr_c = res_cnn.metrics.psnr if res_cnn.metrics else 0.0
+    st.markdown(
+        f'<div class="metric-box"><div class="metric-value" style="color:#38bdf8;">{psnr_g:.1f} dB</div>'
+        f'<div class="metric-label">PSNR (CNN: {psnr_c:.1f} dB)</div></div>',
+        unsafe_allow_html=True,
+    )
+with col_mf3:
+    iou_g = res_grammar.metrics.iou if res_grammar.metrics else 0.0
+    iou_c = res_cnn.metrics.iou if res_cnn.metrics else 0.0
+    st.markdown(
+        f'<div class="metric-box"><div class="metric-value" style="color:#38bdf8;">{iou_g:.4f}</div>'
+        f'<div class="metric-label">Binary IoU (CNN: {iou_c:.4f})</div></div>',
+        unsafe_allow_html=True,
+    )
+with col_mf4:
+    chamf_g = res_grammar.metrics.chamfer_distance if res_grammar.metrics else 0.0
+    chamf_c = res_cnn.metrics.chamfer_distance if res_cnn.metrics else 0.0
+    st.markdown(
+        f'<div class="metric-box"><div class="metric-value" style="color:#38bdf8;">{chamf_g:.2f} px</div>'
+        f'<div class="metric-label">Chamfer Dist (CNN: {chamf_c:.2f} px)</div></div>',
         unsafe_allow_html=True,
     )
 
-col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
-with col_m1:
-    metric_color = "#38bdf8" if is_exact_match else ("#60a5fa" if is_good_match else "#94a3b8")
-    st.markdown(f'<div class="metric-box"><div class="metric-value" style="color:{metric_color}!important;">{ssim_val:.4f}</div><div class="metric-label">Structural SSIM</div></div>', unsafe_allow_html=True)
-with col_m2:
-    metric_color = "#38bdf8" if is_exact_match else ("#60a5fa" if is_good_match else "#94a3b8")
-    st.markdown(f'<div class="metric-box"><div class="metric-value" style="color:{metric_color}!important;">{iou_val:.4f}</div><div class="metric-label">Binary IoU</div></div>', unsafe_allow_html=True)
-with col_m3:
-    metric_color = "#38bdf8" if is_exact_match else ("#60a5fa" if is_good_match else "#94a3b8")
-    st.markdown(f'<div class="metric-box"><div class="metric-value" style="color:{metric_color}!important;">{ncc_val:.4f}</div><div class="metric-label">Normalized Corr.</div></div>', unsafe_allow_html=True)
-with col_m4:
-    st.markdown(f'<div class="metric-box"><div class="metric-value">{mean_err:.2f}</div><div class="metric-label">Mean Pixel Err</div></div>', unsafe_allow_html=True)
-with col_m5:
-    sym_label = "✓ Preserved" if (is_exact_match or is_good_match) else "Out of Library"
-    sym_color = "#22c55e" if (is_exact_match or is_good_match) else "#94a3b8"
-    st.markdown(f'<div class="metric-box"><div class="metric-value" style="color:{sym_color}!important;">{sym_label}</div><div class="metric-label">Symmetry Status</div></div>', unsafe_allow_html=True)
+# -----------------------------------------------------------------------------
+# 13. SECTION 6: Topological Homology Validation (Stage 6)
+# -----------------------------------------------------------------------------
+st.markdown("### 🕸️ Stage 6: Topological Homology Invariants")
 
+col_topo_img1, col_topo_img2, col_topo_img3 = st.columns(3)
+with col_topo_img1:
+    st.image(skel_orig, caption=f"Input Skeleton (β₀={b0_orig}, β₁={b1_orig})", use_container_width=True, clamp=True)
+with col_topo_img2:
+    st.image(skel_grammar, caption=f"Stage 4 Recon Skeleton (β₀={b0_grammar}, β₁={b1_grammar})", use_container_width=True, clamp=True)
+with col_topo_img3:
+    st.image(skel_cnn, caption=f"Stage 3 Recon Skeleton (β₀={b0_cnn}, β₁={b1_cnn})", use_container_width=True, clamp=True)
 
-# Step 6: Topological Homology Status
-st.markdown("### 🕸️ Structural & Topological Homology Validation")
+topo_grammar_match = (b0_orig == b0_grammar and b1_orig == b1_grammar)
+topo_badge = (
+    '<span style="color:#22c55e; font-weight:700;">✓ Exact Topological Homology Preserved (β₀ and β₁ match)</span>'
+    if topo_grammar_match
+    else '<span style="color:#f59e0b; font-weight:700;">≈ Homology Discrepancy (Connectedness or cycle rank differs)</span>'
+)
 
-col_t1, col_t2, col_t3 = st.columns([1, 1, 1.4])
-with col_t1:
-    st.image(input_skel, caption=f"Original Skeleton (β₀={b0_orig}, β₁={b1_orig})", use_container_width=True, clamp=True)
-with col_t2:
-    st.image(recon_skel, caption=f"Reconstructed Skeleton (β₀={b0_recon}, β₁={b1_recon})", use_container_width=True, clamp=True)
-with col_t3:
-    topo_match = (b0_orig == b0_recon and b1_orig == b1_recon)
-    if topo_match:
-        topo_badge = '<span style="color:#22c55e; font-weight:700; font-size:1.02rem;">✓ Topology Preserved (Exact Homology)</span>'
-    elif is_good_match:
-        topo_badge = '<span style="color:#60a5fa; font-weight:700; font-size:1.02rem;">≈ Homology Preserved Under Compression</span>'
-    else:
-        topo_badge = '<span style="color:#94a3b8; font-weight:700; font-size:1.02rem;">Outside Registered Grammar Set</span>'
+st.markdown(
+    f"""
+    <div class="card">
+        <strong>Dual-Complex Graph Betti Summary:</strong>
+        <ul style="margin-top:6px; margin-bottom:8px; line-height:1.8;">
+            <li><strong>Connected Components (&beta;₀):</strong> Input = <code>{b0_orig}</code> &rarr; Stage 4 Recon = <code>{b0_grammar}</code> &rarr; Stage 3 Recon = <code>{b0_cnn}</code></li>
+            <li><strong>Independent Stroke Cycles (&beta;₁):</strong> Input = <code>{b1_orig}</code> &rarr; Stage 4 Recon = <code>{b1_grammar}</code> &rarr; Stage 3 Recon = <code>{b1_cnn}</code></li>
+            <li><strong>Stage 4 Homology Status:</strong> {topo_badge}</li>
+        </ul>
+        <span style="font-size:0.80rem; color:#94a3b8;">
+        <strong>Scientific Invariant Separation:</strong> Topological invariants measure structural loop closure and connectedness.
+        Exact homology (&beta;₀, &beta;₁) can be preserved even when pixel alignment metrics (SSIM, IoU) are modest due to rasterization discretization or stroke width variation.
+        </span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-    st.markdown(
-        f"""
-        <div class="card">
-            <strong>Graph Betti Invariants:</strong>
-            <ul style="margin-top:6px; margin-bottom:8px;">
-                <li><strong>Connected Components (&beta;₀):</strong> Original = <code>{b0_orig}</code> &rarr; Reconstructed = <code>{b0_recon}</code></li>
-                <li><strong>Independent Closed Loops (&beta;₁):</strong> Original = <code>{b1_orig}</code> &rarr; Reconstructed = <code>{b1_recon}</code></li>
-                <li><strong>Topological Homology:</strong> {topo_badge}</li>
-            </ul>
-            <span style="font-size:0.78rem; color:#94a3b8;">
-            Homology verification compares Euler characteristic cycle rank &beta;₁ and connected components &beta;₀ on the 1-pixel medial skeleton.
-            </span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-# Step 7: Continuous Parametric Curve Reconstruction (Verified Module)
-st.markdown("### 📈 Continuous Parametric Curve Reconstruction (Experimental)")
+# -----------------------------------------------------------------------------
+# 14. SECTION 7: Continuous Parametric Curve Reconstruction (Stage 7)
+# -----------------------------------------------------------------------------
+st.markdown("### 📈 Stage 7: Continuous Parametric Curve Reconstruction ($K = |E|$)")
 st.markdown(
     """
-    <span style="font-size:0.9rem; color:#cbd5e1;">
-    An independent alternative representation pathway. Rather than compiling an L-system string via turtle geometry,
-    this module extracts the medial stroke graph $G=(V, E)$ from the input pattern and fits exactly one continuous
-    parametric curve $\\mathbf{r}_k(t)$ per branch edge ($K = |E|$). Open segments with curvature are fit with
-    degree-3 polynomials with endpoint constraints, while isolated simple closed loops use periodic cubic B-splines.
+    <span style="font-size:0.88rem; color:#cbd5e1;">
+    Dual continuous representation pathway. Decomposes the medial stroke skeleton into an undirected branch graph
+    $G=(V, E)$ and fits exactly one parametric equation per branch edge ($K = |E|$). Open branches are modeled
+    as endpoint-constrained cubic polynomials, while isolated closed loops use periodic cubic B-splines.
     </span>
     """,
     unsafe_allow_html=True,
 )
 
-# Extract stroke-only skeleton (isolate strokes from dot grid for clean curve fitting)
-clean_stroke_mask = (input_binary > 0).astype(np.uint8)
-stroke_skel = skeletonize_zhang_suen(clean_stroke_mask)
-stroke_graph = extract_skeleton_graph(stroke_skel)
-v_count = len(stroke_graph.vertices)
-e_count = len(stroke_graph.edges)
-b0_stroke, b1_stroke = stroke_graph.compute_betti_numbers()
-
-# Fit continuous curves: K = |E|
-fitted_curves = fit_skeleton_graph_curves(stroke_graph, linearity_threshold=0.5)
-num_fitted_curves = len(fitted_curves)
-
-# Count degrees
+num_curves = len(fitted_curves)
 linear_count = sum(1 for c in fitted_curves if c.degree == 1)
-cubic_poly_count = sum(1 for c in fitted_curves if c.degree == 3 and not c.is_periodic)
+cubic_count = sum(1 for c in fitted_curves if c.degree == 3 and not c.is_periodic)
 spline_count = sum(1 for c in fitted_curves if c.is_periodic)
 
-# Rasterize fitted curves to canvas
-curve_raster = rasterize_curves(fitted_curves, image_shape=(256, 256), stroke_width=2)
-
-# Compute metrics against original stroke mask
-curve_ssim = compute_ssim(input_binary, curve_raster)
-curve_iou = compute_iou(input_binary, curve_raster)
-
-# Extract topology of rasterized curves
-curve_skel = skeletonize_zhang_suen(curve_raster > 100)
-curve_graph = extract_skeleton_graph(curve_skel)
-b0_curve_recon, b1_curve_recon = curve_graph.compute_betti_numbers()
-
-# Display side-by-side
-col_c1, col_c2, col_c3 = st.columns([1, 1, 1.4])
-with col_c1:
-    st.image(
-        clean_stroke_mask * 255,
-        caption=f"Clean Stroke Target (|V|={v_count}, |E|={e_count})",
-        use_container_width=True,
-        clamp=True,
+col_cv1, col_cv2, col_cv3 = st.columns([1, 1, 1.4])
+with col_cv1:
+    st.image(stroke_mask_256, caption=f"Clean Stroke Target (|E|={len(stroke_graph.edges)})", use_container_width=True, clamp=True)
+with col_cv2:
+    st.image(curve_raster, caption=f"Continuous Curve Rasterization ({num_curves} Equations)", use_container_width=True, clamp=True)
+with col_cv3:
+    k_equal = (num_curves == len(stroke_graph.edges))
+    curve_topo_match = (b0_orig == b0_curve and b1_orig == b1_curve)
+    c_badge = (
+        '<span style="color:#22c55e; font-weight:700;">✓ Stroke Homology Preserved</span>'
+        if curve_topo_match
+        else '<span style="color:#f59e0b; font-weight:700;">≈ Homology Shift (Raster Aliasing at Junctions)</span>'
     )
-with col_c2:
-    st.image(
-        curve_raster,
-        caption=f"Curve-Fit Rasterization ({num_fitted_curves} Equations)",
-        use_container_width=True,
-        clamp=True,
-    )
-with col_c3:
-    k_equal = (num_fitted_curves == e_count)
-    curve_topo_match = (b0_stroke == b0_curve_recon and b1_stroke == b1_curve_recon)
-
-    if curve_topo_match:
-        curve_badge = '<span style="color:#22c55e; font-weight:700;">✓ Exact Stroke Homology Preserved</span>'
-    else:
-        curve_badge = '<span style="color:#f59e0b; font-weight:700;">≈ Homology Shift (Raster Aliasing at Crossings)</span>'
-
     st.markdown(
         f"""
         <div class="card">
-            <strong>Fitted Parametric System:</strong>
+            <strong>Parametric Curve System:</strong>
             <ul style="margin-top:6px; margin-bottom:8px; line-height:1.8;">
-                <li><strong>Equation Count ($K$):</strong> <code>{num_fitted_curves}</code> curves (<em>$K = |E|$: {'✓ Holds' if k_equal else '✗ Discrepancy'}</em>)</li>
-                <li><strong>Curve Breakdown:</strong> <code>{linear_count}</code> linear, <code>{cubic_poly_count}</code> cubic poly, <code>{spline_count}</code> periodic B-spline</li>
-                <li><strong>Stroke Topology:</strong> &beta;₀: <code>{b0_stroke} &rarr; {b0_curve_recon}</code>, &beta;₁: <code>{b1_stroke} &rarr; {b1_curve_recon}</code></li>
-                <li><strong>Homology Status:</strong> {curve_badge}</li>
-                <li><strong>Spatial Similarity:</strong> SSIM = <code>{curve_ssim:.4f}</code>, IoU = <code>{curve_iou:.4f}</code></li>
+                <li><strong>Equation Count ($K$):</strong> <code>{num_curves}</code> curves (<em>$K = |E|$: {'✓ Holds' if k_equal else '✗ Discrepancy'}</em>)</li>
+                <li><strong>Composition:</strong> <code>{linear_count}</code> linear, <code>{cubic_count}</code> cubic poly, <code>{spline_count}</code> periodic B-spline</li>
+                <li><strong>Topology:</strong> &beta;₀: <code>{b0_orig} &rarr; {b0_curve}</code>, &beta;₁: <code>{b1_orig} &rarr; {b1_curve}</code></li>
+                <li><strong>Homology Status:</strong> {c_badge}</li>
             </ul>
-            <span style="font-size:0.78rem; color:#94a3b8;">
-            Note: SSIM reflects geometric discretization onto a 256x256 grid. Topology preserves cycle rank independently of pixel-level aliasing.
-            </span>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-with st.expander(f"📜 Inspect Sample Fitted Parametric Equations (Showing first 5 of {num_fitted_curves})", expanded=False):
+with st.expander(f"📜 Inspect Fitted Parametric Equations (Showing first 5 of {num_curves})", expanded=False):
     for i, c in enumerate(fitted_curves[:5]):
         if c.is_periodic:
-            st.text(f"Curve {i+1:03d} | Periodic Cubic B-Spline | Max Fit Error: {c.max_fitting_error:.4f} px | t in [0.0, 1.0]")
+            st.text(f"Curve {i+1:03d} | Periodic Cubic B-Spline | Max Error: {c.max_fitting_error:.4f} px | t in [0.0, 1.0]")
         elif c.degree == 1:
-            st.text(f"Curve {i+1:03d} | Linear: x(t) = {c.coefficients_x[0]:.2f} + {c.coefficients_x[1]:.2f}*t, y(t) = {c.coefficients_y[0]:.2f} + {c.coefficients_y[1]:.2f}*t | Max Fit Err: {c.max_fitting_error:.4f} px")
+            st.text(f"Curve {i+1:03d} | Linear: x(t)={c.coefficients_x[0]:.2f}+{c.coefficients_x[1]:.2f}t, y(t)={c.coefficients_y[0]:.2f}+{c.coefficients_y[1]:.2f}t | Max Err: {c.max_fitting_error:.4f} px")
         else:
-            st.text(f"Curve {i+1:03d} | Cubic Poly: deg={c.degree} | Max Fit Err: {c.max_fitting_error:.4f} px | Mean Err: {c.mean_fitting_error:.4f} px")
-
-
-# -----------------------------------------------------------------------------
-# 9. Research Pipeline Diagram
-# -----------------------------------------------------------------------------
-st.markdown("---")
-st.markdown("### 🗺️ Intended End-to-End Research Pipeline Architecture")
-
-col_p1, col_p2, col_p3, col_p4, col_p5, col_p6 = st.columns(6)
-col_p1.markdown('<div class="pipeline-step">1. Known Grammar</div>', unsafe_allow_html=True)
-col_p2.markdown('<div class="pipeline-step">2. Synthetic Kolam</div>', unsafe_allow_html=True)
-col_p3.markdown('<div class="pipeline-step">3. Prototype Inference</div>', unsafe_allow_html=True)
-col_p4.markdown('<div class="pipeline-step">4. Recovered Grammar</div>', unsafe_allow_html=True)
-col_p5.markdown('<div class="pipeline-step">5. Generator</div>', unsafe_allow_html=True)
-col_p6.markdown('<div class="pipeline-step">6. Validation</div>', unsafe_allow_html=True)
-
-st.markdown(
-    """
-    <div style="text-align:center; font-size:0.82rem; color:#94a3b8; margin-top:10px;">
-    <em>Current prototype uses a controlled registered grammar vocabulary.<br>
-    The final research system will replace prototype matching with a learned image-to-grammar model.</em>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+            st.text(f"Curve {i+1:03d} | Cubic Polynomial | deg={c.degree} | Max Err: {c.max_fitting_error:.4f} px | Mean Err: {c.mean_fitting_error:.4f} px")

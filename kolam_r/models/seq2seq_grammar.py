@@ -167,16 +167,18 @@ class VisionToGrammarModel(nn.Module):
         self,
         images: torch.Tensor,
         max_length: int = 64,
+        return_probabilities: bool = False,
     ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         """Autoregressive greedy sequence generation at inference time.
 
         Args:
             images: Input images (B, 1, 64, 64).
             max_length: Maximum decoding length.
+            return_probabilities: Whether to calculate and attach real token generation probabilities.
 
         Returns:
             generated_token_ids: (B, T) tensor of decoded token IDs.
-            aux_predictions: Dictionary of auxiliary attribute predictions.
+            aux_predictions: Dictionary of auxiliary attribute predictions (and confidence metrics).
         """
         B = images.size(0)
         device = images.device
@@ -193,6 +195,7 @@ class VisionToGrammarModel(nn.Module):
         # Initialize sequence with <BOS>
         current_tokens = torch.full((B, 1), self.bos_idx, dtype=torch.long, device=device)
         finished = torch.zeros(B, dtype=torch.bool, device=device)
+        step_probabilities: list[torch.Tensor] = []
 
         for step in range(1, max_length):
             T = current_tokens.size(1)
@@ -213,7 +216,12 @@ class VisionToGrammarModel(nn.Module):
             next_token_logits[:, self.pad_idx] = -float("inf")
             next_token_logits[:, self.bos_idx] = -float("inf")
 
+            probs = F.softmax(next_token_logits, dim=-1)
             next_token = next_token_logits.argmax(dim=-1, keepdim=True)  # (B, 1)
+
+            if return_probabilities:
+                selected_p = probs.gather(dim=-1, index=next_token)  # (B, 1)
+                step_probabilities.append(selected_p)
 
             # If finished, output <PAD>
             next_token = torch.where(finished.unsqueeze(1), self.pad_idx, next_token)
@@ -222,5 +230,11 @@ class VisionToGrammarModel(nn.Module):
             finished = finished | (next_token.squeeze(1) == self.eos_idx)
             if finished.all():
                 break
+
+        if return_probabilities and step_probabilities:
+            # (B, T_steps)
+            probs_tensor = torch.cat(step_probabilities, dim=1)
+            # Mask out probabilities after EOS
+            aux_predictions["token_probabilities"] = probs_tensor
 
         return current_tokens, aux_predictions
